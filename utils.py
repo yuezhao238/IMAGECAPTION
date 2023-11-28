@@ -18,30 +18,6 @@ from dataset import ImageTextDataset
 import glob
 
 
-def build_format_json(data_dir, tgt_name):
-    json_files = glob.glob(os.path.join(data_dir, '*.json'))
-    start_sentence_id = 0
-    start_image_id = 0
-    tgt_data = {'images':[]}
-
-    for json_file in json_files:
-        json_split = 'train' if 'train' in json_file else 'test'
-        with open(json_file, 'r') as f:
-            data = json.load(f)
-        for img in data:
-            file_name = img
-            file_path = os.path.join(data_dir, file_name)
-            sentences = data[img].split('.')
-            sentids = [i for i in range(start_sentence_id, start_sentence_id+len(sentences))]
-            start_sentence_id += len(sentences)
-            tgt_sentences = [{'raw': sent, 'tokens': sent.split(' '), 'sentid': sentid, 'imgid': start_image_id} for sent, sentid in zip(sentences, sentids)]
-            tgt_data['images'].append({'filename': file_name, 'sentences': tgt_sentences, 'split': json_split})
-            start_image_id += 1
-
-    with open(os.path.join(data_dir, tgt_name), 'a') as f:
-        json.dump(tgt_data, f)
-        f.write('\n')
-        
 def get_optimizer(model, config):
     return torch.optim.Adam([{"params": filter(lambda p: p.requires_grad, model.encoder.parameters()), 
                               "lr": config.encoder_learning_rate},
