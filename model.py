@@ -4,7 +4,7 @@ from argparse import Namespace
 import torch
 import torch.nn as nn
 import torchvision.transforms as transforms
-from .dataset import ImageTextDataset
+from dataset import ImageTextDataset
 from layers.vision import ImageEncoder
 from layers.language import AttentionDecoder
 

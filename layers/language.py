@@ -2,6 +2,7 @@ from torch import nn
 import torch
 from attention import AdditiveAttention
 
+
 class AttentionDecoder(nn.Module):
     def __init__(self, image_code_dim, vocab_size, word_dim, attention_dim, hidden_size, num_layers, dropout=0.5):
         super(AttentionDecoder, self).__init__()
