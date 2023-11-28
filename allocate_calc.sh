@@ -1,0 +1,1 @@
+srun -p gpu3-2 -N 1 -n 1 -c 5 --gres=gpu:1 --pty bash

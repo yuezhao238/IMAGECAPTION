@@ -1,0 +1,7 @@
+__pycache__/
+wandb/
+*.txt
+*.onnx
+*.png
+*.jpg
+*.out
