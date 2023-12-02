@@ -4,7 +4,7 @@ from argparse import Namespace
 import torch
 import torch.nn as nn
 import torchvision.transforms as transforms
-from dataset import ImageTextDataset
+from datasets import ImageTextDataset
 from layers.vision import ImageEncoder
 from layers.language import AttentionDecoder
 
@@ -100,7 +100,7 @@ class ARCTIC(nn.Module):
 if __name__ == "__main__":
     import netron
     import torch.onnx
-    from dataset import ImageTextDataset
+    from datasets import ImageTextDataset
     args = Namespace(
         image_code_dim = 2048,
         vocab = json.load(open('../data/flickr8k/vocab.json', 'r')),
