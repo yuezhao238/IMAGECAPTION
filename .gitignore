@@ -5,3 +5,4 @@ wandb/
 *.png
 *.jpg
 *.out
+test*

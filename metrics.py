@@ -4,58 +4,29 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import re
 import json
+from nltk.stem.porter import PorterStemmer
+from nltk.corpus import wordnet
 
 
-class CaptionMetric:
-    def __init__(self):
-        pass
-
-    def compute(self, hyp: str, ref: str) -> float:
-        pass
-
-    def __call__(self, hyp: str, refs: List[str]) -> float:
-        pass
-
-    def tokenize(self, line: str, length: int = 1) -> Union[List[str], List[Tuple[str]]]:
-        line = re.sub(r'[^\w\s]', ' ', line)
-        line = line.lower()
-        line = line.split()
-        if length > 1:
-            iteration = []
-            for i in range(length):
-                iteration.append(line[i: len(line)-length+i+1])
-            res = []
-            for item in zip(*iteration):
-                res.append(item)
-            return res
-        elif length == 1:
-            return line
-        else:
-            raise ValueError('length should be a positive integer')
+def tokenize(line: str, length: int = 1) -> Union[List[str], List[Tuple[str]]]:
+    line = re.sub(r'[^\w\s]', ' ', line)
+    line = line.lower()
+    line = line.split()
+    if length > 1:
+        iteration = []
+        for i in range(length):
+            iteration.append(line[i: len(line)-length+i+1])
+        res = []
+        for item in zip(*iteration):
+            res.append(item)
+        return res
+    elif length == 1:
+        return line
+    else:
+        raise ValueError('length should be a positive integer')
 
 
-class ROUGE(CaptionMetric):
-    def __init__(self, N: int = 1):
-        super(ROUGE, self).__init__()
-        self.N = N
-
-    def compute(self, hyp: str, ref: str) -> float:
-        hyp = self.tokenize(hyp, self.N)
-        ref = self.tokenize(ref, self.N)
-        score = 0
-        for token in ref:
-            if token in hyp:
-                score += 1
-        return score / len(ref)
-
-    def __call__(self, hyp: str, refs: List[str]) -> float:
-        scores = 0
-        for ref in refs:
-            scores += self.compute(hyp, ref)
-        return scores / len(refs)
-
-
-class ROUGEL(CaptionMetric):
+class ROUGEL:
     def __init__(self, beta: float = 1.2):
         super().__init__()
         self.beta = beta
@@ -84,8 +55,8 @@ class ROUGEL(CaptionMetric):
         return result
 
     def compute(self, hyp: str, ref: str) -> float:
-        hyp = self.tokenize(hyp)
-        ref = self.tokenize(ref)
+        hyp = tokenize(hyp)
+        ref = tokenize(ref)
         lcs = len(self.LCS(hyp, ref))
         P_lcs = lcs / len(hyp)
         R_lcs = lcs / len(ref)
@@ -99,7 +70,7 @@ class ROUGEL(CaptionMetric):
         return scores / len(refs)
 
 
-class CIDErD(CaptionMetric):
+class CIDErD:
     def __init__(self, path_tfidf_weights: str = 'tfidf_weights.json'):
         super().__init__()
         with open(path_tfidf_weights, 'r') as f:
@@ -122,3 +93,112 @@ class CIDErD(CaptionMetric):
         hyp_tfidf = tfidf_matrix[0]
         scores = [self._cosine_similarity(hyp_tfidf, ref_tfidf) for ref_tfidf in tfidf_matrix[1:]]
         return float(np.mean(scores))
+    
+
+class Meteor:
+    def __init__(self, alpha, beta, gamma):
+        self.alpha = alpha
+        self.beta = beta
+        self.gamma = gamma
+        self.stemmer = PorterStemmer()
+        self.wordnet = wordnet
+
+    def basic_match(self, hypo_list, refer_list):
+        word_match = []
+        for i in range(len(hypo_list))[::-1]:
+            for j in range(len(refer_list))[::-1]:
+                if hypo_list[i][1] == refer_list[j][1]:
+                    word_match.append((hypo_list[i][0], refer_list[j][0]))
+                    hypo_list.pop(i)[1]
+                    refer_list.pop(j)[1]
+                    break
+        return word_match, hypo_list, refer_list
+
+    def stem_match(self, hypo_list, refer_list):
+        stemmed_enum_list_hypo = [(word_idx, self.stemmer.stem(word)) for word_idx, word in hypo_list]
+        stemmed_enum_list_ref = [(word_idx, self.stemmer.stem(word)) for word_idx, word in refer_list]
+        word_match, unmat_hypo_idx, unmat_ref_idx = self.basic_match(stemmed_enum_list_hypo, stemmed_enum_list_ref)
+        unmat_hypo_indices = set(idx[0] for idx in unmat_hypo_idx)
+        unmat_ref_indices = set(idx[0] for idx in unmat_ref_idx)
+
+        hypo_list = [(idx, word) for idx, word in hypo_list if idx not in unmat_hypo_indices]
+        refer_list = [(idx, word) for idx, word in refer_list if idx not in unmat_ref_indices]
+
+        return word_match, hypo_list, refer_list
+
+    def get_synonyms(self, word):
+        return set(lemma.name() for synset in self.wordnet.synsets(word) for lemma in synset.lemmas() if lemma.name().find("_") < 0)
+    
+    def wordnet_match(self, hypo_list, refer_list):
+        word_match = []
+        for i, (hypo_idx, hypo_word) in reversed(list(enumerate(hypo_list))):
+            hypothesis_syns = self.get_synonyms(hypo_word)
+            hypothesis_syns.add(hypo_word)
+
+            match_found = any(refer_word == hypo_word or refer_word in hypothesis_syns for _, refer_word in reversed(refer_list))
+
+            if match_found:
+                word_match.append((hypo_idx, refer_list[-1][0]))
+                hypo_list.pop(i)
+                refer_list.pop()
+
+        return word_match, hypo_list, refer_list
+
+    def match(self, hypo_list, refer_list):
+        exact_matches, hypo_list, refer_list = self.basic_match(hypo_list, refer_list)
+        stem_matches, hypo_list, refer_list = self.stem_match(hypo_list, refer_list)
+        wns_matches, hypo_list, refer_list = self.wordnet_match(hypo_list, refer_list)
+
+        return sorted(exact_matches + stem_matches + wns_matches, key=lambda wordpair: wordpair[0])
+
+    def chunk_num(self, matches):
+        i = 0
+        chunks_num = 1
+        while i < len(matches) - 1:
+            if matches[i + 1][0] == matches[i][0] + 1 and matches[i + 1][1] == matches[i][1] + 1:
+                i += 1
+                continue
+            i += 1
+            chunks_num += 1
+        return chunks_num
+
+    def compute(self, reference, hypothesis):
+        hypo_list = list(enumerate(hypothesis.lower().split()))
+        refer_list = list(enumerate(reference.lower().split()))
+        hypo_len = len(hypo_list)
+        refer_len = len(refer_list)
+        matches = self.match(hypo_list, refer_list)
+        matches_num = len(matches)
+        if matches_num == 0:
+            return 0
+        precision = matches_num / hypo_len
+        recall = matches_num / refer_len
+        fmean = precision * recall / (self.alpha * precision + (1 - self.alpha) * recall)
+        chunk_num = self.chunk_num(matches)
+        frag_frac = chunk_num / matches_num
+        penalty = self.gamma * frag_frac ** self.beta
+        meteor_score = (1 - penalty) * fmean
+        return meteor_score
+
+    def __call__(self, references, hypothesis):
+        scores = [self.compute(reference, hypothesis) for reference in references]
+        return max(scores)
+
+
+if __name__ == '__main__':
+    reference_sentence = "reference sentence"
+    generated_sentence = "generated sentence"
+
+
+    # TODO: Bool1020 - ROUGEL unit test code
+
+    # TODO: zzc300 - CIDErD unit test code
+
+    # Heathcliff-Zhao - Meteor unit test code
+    from nltk.translate.meteor_score import meteor_score
+    meteor_scorer = Meteor(alpha=0.9, beta=3, gamma=0.5)
+    score = meteor_scorer([reference_sentence], generated_sentence)
+    print("Meteor Score:", score)
+    right_score = meteor_score([reference_sentence], generated_sentence)
+    print("Right Meteor Score:", right_score)
+    assert abs(score - right_score) < 1e-5
