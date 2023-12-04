@@ -191,8 +191,24 @@ if __name__ == '__main__':
 
 
     # TODO: Bool1020 - ROUGEL unit test code
+    from rouge import Rouge
+    rougel_scorer = ROUGEL(beta=1.2)
+    score = rougel_scorer(generated_sentence, [reference_sentence])
+    print("ROUGE-L Score:", score)
+    rouge = Rouge()
+    right_score = rouge.get_scores(generated_sentence, reference_sentence)[0]['rouge-l']['f']
+    print("Right ROUGE-L Score:", right_score)
+    assert abs(score - right_score) < 1e-5
 
     # TODO: zzc300 - CIDErD unit test code
+    from cider import CiderD
+    ciderd_scorer = CIDErD()
+    score = ciderd_scorer(generated_sentence, [reference_sentence])
+    print("CIDErD Score:", score)
+    cider = CiderD()  
+    right_score = cider.compute([generated_sentence], [[reference_sentence]]) 
+    print("Right CIDErD Score:", right_score)
+    assert abs(score - right_score) < 1e-5
 
     # Heathcliff-Zhao - Meteor unit test code
     from nltk.translate.meteor_score import meteor_score
