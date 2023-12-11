@@ -1,11 +1,22 @@
 import numpy as np
-from typing import List, Tuple, Union
+from typing import List, Tuple, Union, Optional, Dict
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import re
 import json
 from nltk.stem.porter import PorterStemmer
 from nltk.corpus import wordnet
+from collections import Counter
+from nltk.stem import PorterStemmer
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+from collections import Counter
+from typing import List, Dict
+from collections import defaultdict, Counter
+from typing import Any, Callable, Mapping, Union
+import torch
+from torch import Tensor
+
 
 
 def tokenize(line: str, length: int = 1) -> Union[List[str], List[Tuple[str]]]:
@@ -71,28 +82,145 @@ class ROUGEL:
 
 
 class CIDErD:
-    def __init__(self, path_tfidf_weights: str = 'tfidf_weights.json'):
-        super().__init__()
-        with open(path_tfidf_weights, 'r') as f:
-            tfidf_weights = json.load(f)
-        self.tfidf_weights = tfidf_weights
+    def __init__(self, n: int = 4, sigma: float = 6.0, scale: float = 10.0):
+        self.n = n
+        self.sigma = sigma
+        self.scale = scale
 
-    def _compute_tfidf(self, corpus: List[str]) -> np.ndarray:
-        vectorizer = TfidfVectorizer(vocabulary=self.tfidf_weights)
-        tfidf_matrix = vectorizer.fit_transform(corpus)
-        return tfidf_matrix.toarray()
+    def compute_score(self, candidates: list[str], 
+                      references: list[list[str]], 
+                      return_all_scores: bool = True, 
+                      return_tfidf: bool = False) -> Union[Tensor, tuple[dict[str, Tensor], dict[str, Any]]]:
+        # 预处理
+        process_cands, process_refes = self._prepare_data(candidates, references)
+        # 计算打分
+        score = self._compute(process_cands, process_refes, return_all_scores, return_tfidf)
+        return score
 
-    def _cosine_similarity(self, vec1: np.ndarray, vec2: np.ndarray) -> np.ndarray:
-        return cosine_similarity([vec1], [vec2])[0][0]
+    def _prepare_data(self, candidates: list[str], references: list[list[str]]) -> tuple[list, list]:
+        # 候选文本数量与参考文本数量相同
+        if len(candidates) != len(references):
+            raise ValueError(f"Invalid number of candidates and references. (found {len(candidates)=} != {len(references)=})")
+        new_process_refes = [[self._process_sentence(ref) for ref in refs] for refs in references]
+        new_process_cands = [self._process_sentence(cand) for cand in candidates]
+        return new_process_cands, new_process_refes
 
-    def __call__(self, hyp: str, refs: List[str]) -> float:
-        hyp_tokens = self.tokenize(hyp)
-        refs_tokens = [self.tokenize(ref) for ref in refs]
-        corpus = [' '.join(hyp_tokens)] + [' '.join(ref) for ref in refs_tokens]
-        tfidf_matrix = self._compute_tfidf(corpus)
-        hyp_tfidf = tfidf_matrix[0]
-        scores = [self._cosine_similarity(hyp_tfidf, ref_tfidf) for ref_tfidf in tfidf_matrix[1:]]
-        return float(np.mean(scores))
+    def _compute(self, process_cands: list[Counter], 
+                 process_refes: list[list[Counter]], 
+                 return_all_scores: bool, 
+                 return_tfidf: bool) -> Union[Tensor, tuple[dict[str, Tensor], dict[str, Any]]]:
+        # 至少需要两个候选文本及其对应的参考文本
+        if len(process_cands) <= 1:
+            raise ValueError(f"CIDEr-D metric does not support less than 2 candidates with 2 references. (found {len(process_cands)} candidates, but expected > 1)")
+        # 计算参考文本中n-gram的文档频率
+        doc_frequencies = self._compute_doc_freq(process_refes)
+        # 候选文本的数量大于等于任何n-gram的最大文档频率
+        assert len(process_cands) >= max(doc_frequencies.values()), "Sanity check failed."
+        log_refs = np.log(float(len(process_refes)))
+        # 计算每个候选文本与其对应参考文本之间的CIDEr-D评分
+        cider_scores, tfidf_lst = self._compute_cider(process_cands, process_refes, doc_frequencies, log_refs)
+        cider_score = cider_scores.mean()
+        cider_scores = torch.from_numpy(cider_scores)
+        cider_score = torch.as_tensor(cider_score, dtype=torch.float64)
+        if return_all_scores:
+            cider_outs_corpus = {"CIDEr_d": cider_score}
+            cider_outs_sents = {"CIDEr_d": cider_scores}
+            if return_tfidf:
+                cider_outs_sents["tfidf_lst"] = tfidf_lst
+            cider_outs = cider_outs_corpus, cider_outs_sents
+            return cider_outs
+        else:
+            return cider_score
+
+    def _process_sentence(self, sentence: str) -> Counter[tuple[str, ...]]:
+        words = tokenize(sentence)
+        # ngram计数
+        ngram_counter = Counter()
+        # 生成n-gram
+        for k in range(1, self.n + 1):
+            for i in range(len(words) - k + 1):
+                ngram = tuple(words[i : i + k])
+                ngram_counter[ngram] += 1
+        return ngram_counter
+
+    def _compute_doc_freq(self, process_refes: list[list[Counter]]) -> Counter[tuple[str, ...]]:
+        doc_frequencies = Counter()
+        for refs in process_refes:
+            # 创建一个集合 all_refs_ngrams，包含了当前参考文本集（refs）中所有的唯一 n-gram
+            all_refs_ngrams = set(ngram for ref in refs for ngram in ref.keys())
+            for ngram in all_refs_ngrams:
+                doc_frequencies[ngram] += 1 # 代表该n-gram在多少个不同的参考文本中出现过
+        return doc_frequencies
+
+    def _compute_cider(self, process_cands: list[Counter], 
+                       process_refes: list[list[Counter]], 
+                       doc_frequencies: Union[Counter[tuple], Callable[[tuple], int]], 
+                       log_refs: float) -> tuple[np.ndarray, list[tuple[list, list]]]:
+        scores = np.empty((len(process_cands),))
+        tfidf_lst = []
+        # 候选文本的n-gram计数转换为向量形式，同时计算其范数和长度
+        for i, (cand, refs) in enumerate(zip(process_cands, process_refes)):
+            vec, norm, length = self._counter_to_vec(cand, log_refs, doc_frequencies)
+            ngrams_scores = np.zeros((len(refs), self.n))
+            vec_refs = []
+            # 将每个参考文本n-gram计数转换为向量，并计算其范数和长度
+            for j, ref in enumerate(refs):
+                vec_ref, norm_ref, length_ref = self._counter_to_vec(ref, log_refs, doc_frequencies)
+                vec_refs.append(vec_ref)
+                ngrams_scores[j] = self._similarity(vec, vec_ref, norm, norm_ref, length, length_ref)
+            score_avg = ngrams_scores.sum(axis=0).mean() / len(refs)
+            scores[i] = score_avg
+            tfidf_lst.append((vec, vec_refs))
+        scores = scores * self.scale
+        return scores, tfidf_lst
+
+    def _counter_to_vec(self, counters: dict[tuple, int], 
+                        log_refs: float, 
+                        doc_frequencies: Union[Mapping[tuple, int], Callable[[tuple], int]]) -> tuple[list[defaultdict], np.ndarray, int]:
+        vec = [defaultdict(float) for _ in range(self.n)] # 存储每个n-gram的TF-IDF值
+        length = 0  # 文本的长度
+        norm = np.zeros((self.n,))  # 存储每个n-gram向量的范数
+
+        for ngram, term_freq in counters.items():
+            # 确定文档频率是通过映射还是函数获取的
+            if isinstance(doc_frequencies, Mapping):
+                count = doc_frequencies[ngram]
+            else:
+                count = doc_frequencies(ngram)
+
+            log_df = np.log(max(1.0, count))
+            # 根据n-gram的长度确定当前n-gram的索引
+            cur_n = len(ngram) - 1
+            # 计算n-gram的TF-IDF值并存储在 vec 中
+            vec[cur_n][ngram] = float(term_freq) * (log_refs - log_df)
+            # 更新 norm 数组，表示每个n-gram向量的范数
+            norm[cur_n] += pow(vec[cur_n][ngram], 2)
+
+            if cur_n == 1:
+                length += term_freq
+
+        norm = np.sqrt(norm)
+        return vec, norm, length
+
+    def _similarity(self, cand_vec: list[defaultdict], ref_vec: list[defaultdict], cand_norm: np.ndarray, ref_norm: np.ndarray, cand_len: int, ref_len: int) -> np.ndarray:
+        delta = int(cand_len - ref_len)
+        similarities = np.zeros((self.n,))
+
+        # 外层循环遍历不同的n-gram长度
+        for ni in range(self.n):
+            # 内层循环遍历候选文本的n-gram及其计数
+            for ngram, count in cand_vec[ni].items():
+                # 相似度计算基于候选文本和参考文本中相同n-gram的计数
+                similarities[ni] += min(count, ref_vec[ni][ngram]) * ref_vec[ni][ngram]
+            # 如果n-gram向量的范数不为零，则通过候选文本和参考文本的范数来标准化相似度
+            if (cand_norm[ni] != 0) and (ref_norm[ni] != 0):
+                similarities[ni] /= cand_norm[ni] * ref_norm[ni]
+            # 长度惩罚因子
+            similarities[ni] *= np.e ** (-(delta**2) / (2 * self.sigma**2))
+
+        return similarities
+
+
     
 
 class Meteor:
@@ -201,14 +329,17 @@ if __name__ == '__main__':
     assert abs(score - right_score) < 1e-5
 
     # TODO: zzc300 - CIDErD unit test code
-    from cider import CiderD
-    ciderd_scorer = CIDErD()
-    score = ciderd_scorer(generated_sentence, [reference_sentence])
-    print("CIDErD Score:", score)
-    cider = CiderD()  
-    right_score = cider.compute([generated_sentence], [[reference_sentence]]) 
+    from aac_metrics.functional import cider_d
+    candidates : list[str] = ["a man is speaking", "rain falls"]
+    references: list[list[str]] = [["a man speaks.", "someone speaks.", "a man is speaking while a bird is chirping in the background"], ["rain is falling hard on a surface"]]
+    ciderd = CIDErD()
+    score = ciderd.compute_score(candidates, references)
+    final_score = round(score[0]['CIDEr_d'].item(), 6)
+    print("CIDErD Score:", final_score)
+    corpus_scores, sents_scores = cider_d(candidates, references)
+    right_score = corpus_scores['cider_d'].item()
     print("Right CIDErD Score:", right_score)
-    assert abs(score - right_score) < 1e-5
+    assert abs(final_score - right_score) < 1e-5
 
     # Heathcliff-Zhao - Meteor unit test code
     from nltk.translate.meteor_score import meteor_score
