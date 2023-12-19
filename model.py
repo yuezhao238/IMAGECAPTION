@@ -4,20 +4,26 @@ from argparse import Namespace
 import torch
 import torch.nn as nn
 import torchvision.transforms as transforms
-from datasets import ImageTextDataset
-from layers.vision import ImageEncoder
+from datasets.dataset import ImageTextDataset
+from layers.vision import ImageEncoder, ViTImageEncoder
 from layers.language import AttentionDecoder
 
 
+
 class ARCTIC(nn.Module):
-    def __init__(self, image_code_dim, vocab, word_dim, attention_dim, hidden_size, num_layers):
+    def __init__(self, image_code_dim, vocab, word_dim, attention_dim, hidden_size, num_layers, vision_model='resnet101'):
         super(ARCTIC, self).__init__()
         self.vocab = vocab
-        self.encoder = ImageEncoder()
+        self.vision_model_name = vision_model
+        if 'vit' in self.vision_model_name:
+            self.proj = nn.Linear(768, image_code_dim)
+        self.encoder = ImageEncoder() if vision_model == 'resnet101' else ViTImageEncoder()
         self.decoder = AttentionDecoder(image_code_dim, len(vocab), word_dim, attention_dim, hidden_size, num_layers)
 
     def forward(self, images, captions, cap_lens):
         image_code = self.encoder(images)
+        if 'vit' in self.vision_model_name:
+            image_code = self.proj(image_code)
         return self.decoder(image_code, captions, cap_lens)
     
     def generate_by_beamsearch(self, images, beam_k, max_len):

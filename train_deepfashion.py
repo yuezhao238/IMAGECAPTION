@@ -52,12 +52,12 @@ if not os.path.exists('../model/ARCTIC'):
     os.makedirs('../model/ARCTIC')
 
 # 设置GPU信息
-os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+# os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu") 
 
 # 数据
-data_dir = f'../data/{dataset}/'
-vocab_path = f'../data/{dataset}/vocab.json'
+data_dir = f'../../data/{dataset}/'
+vocab_path = f'../../data/{dataset}/vocab.json'
 train_loader, valid_loader, test_loader = mktrainval(data_dir, vocab_path, config.batch_size, workers=0)
 
 # 模型

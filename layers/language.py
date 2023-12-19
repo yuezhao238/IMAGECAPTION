@@ -1,6 +1,6 @@
 from torch import nn
 import torch
-from attention import AdditiveAttention
+from layers.attention import AdditiveAttention
 
 
 class AttentionDecoder(nn.Module):
@@ -28,10 +28,11 @@ class AttentionDecoder(nn.Module):
         """
         # 将图像网格表示转换为序列表示形式 
         batch_size, image_code_dim = image_code.size(0), image_code.size(1)
-        # -> (batch_size, grid_height, grid_width, image_code_dim) 
-        image_code = image_code.permute(0, 2, 3, 1)  
-        # -> (batch_size, grid_height * grid_width, image_code_dim)
-        image_code = image_code.view(batch_size, -1, image_code_dim)
+        if image_code.dim() == 4:
+            # -> (batch_size, grid_height, grid_width, image_code_dim) 
+            image_code = image_code.permute(0, 2, 3, 1)  
+            # -> (batch_size, grid_height * grid_width, image_code_dim)
+            image_code = image_code.view(batch_size, -1, image_code_dim)
         # （1）按照caption的长短排序
         sorted_cap_lens, sorted_cap_indices = torch.sort(cap_lens, 0, True)
         captions = captions[sorted_cap_indices]

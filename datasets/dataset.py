@@ -52,9 +52,9 @@ def create_dataset(dataset='flickr8k',
         三个数据集文件： train_data.json、 val_data.json、 test_data.json
     """
 
-    karpathy_json_path=f'../data/{dataset}/dataset_{dataset}.json'
-    image_folder=f'../data/{dataset}/images'
-    output_folder=f'../data/{dataset}'
+    karpathy_json_path=f'../../data/{dataset}/dataset_{dataset}.json'
+    image_folder=f'../../data/{dataset}/images'
+    output_folder=f'../../data/{dataset}'
 
     with open(karpathy_json_path, 'r') as j:
         data = json.load(j)

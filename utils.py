@@ -2,7 +2,7 @@ import os
 import torch
 import torchvision.transforms as transforms
 from nltk.translate.bleu_score import corpus_bleu
-from datasets import ImageTextDataset
+from datasets.dataset import ImageTextDataset
 import glob
 
 
