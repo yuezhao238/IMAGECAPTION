@@ -178,7 +178,7 @@ class ImageTextDataset(Dataset):
 if __name__ == '__main__':
     dataset = 'deepfashion'
     if dataset == 'deepfashion':
-        build_format_json(data_dir='../data/deepfashion', tgt_name='dataset_deepfashion.json')
+        build_format_json(data_dir='../../data/deepfashion', tgt_name='dataset_deepfashion.json')
     create_dataset(dataset=dataset,
                      captions_per_image=5, 
                      min_word_count=5, 

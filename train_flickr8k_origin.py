@@ -147,7 +147,7 @@ class ImageTextDataset(Dataset):
 
     def __getitem__(self, i):
         # 第i个文本描述对应第(i // captions_per_image)张图片
-        img = Image.open(self.data['IMAGES'][i // self.cpi]).convert('RGB')
+        img = Image.open(self.data['IMAGES'][i // self.cpi].replace('\\','/')).convert('RGB')
         if self.transform is not None:
             img = self.transform(img)
 
@@ -207,6 +207,31 @@ class ImageEncoder(nn.Module):
         
     def forward(self, images):
         out = self.grid_rep_extractor(images) 
+        return out
+
+from torchvision.models import vit_b_16, ViT_B_16_Weights
+
+class ViTImageEncoder(nn.Module):
+    def __init__(self, finetuned=True):
+        super(ViTImageEncoder, self).__init__()
+        # Load pre-trained Vision Transformer
+        self.model = vit_b_16(weights=ViT_B_16_Weights.DEFAULT)
+        # self.model = self.model.encoder
+        # If not finetuning, freeze the parameters
+        if not finetuned:
+            for param in self.model.parameters():
+                param.requires_grad = False
+        
+    def forward(self, images):
+        # Reshape and permute the input tensor
+        x = self.model._process_input(images)
+        n = x.shape[0]
+
+        # Expand the class token to the full batch
+        batch_class_token = self.model.class_token.expand(n, -1, -1)
+        x = torch.cat([batch_class_token, x], dim=1)
+
+        out = self.model.encoder(x)
         return out
 
 
@@ -301,10 +326,11 @@ class AttentionDecoder(nn.Module):
         """
         # 将图像网格表示转换为序列表示形式 
         batch_size, image_code_dim = image_code.size(0), image_code.size(1)
-        # -> (batch_size, grid_height, grid_width, image_code_dim) 
-        image_code = image_code.permute(0, 2, 3, 1)  
-        # -> (batch_size, grid_height * grid_width, image_code_dim)
-        image_code = image_code.view(batch_size, -1, image_code_dim)
+        if image_code.dim() == 4:
+            # -> (batch_size, grid_height, grid_width, image_code_dim) 
+            image_code = image_code.permute(0, 2, 3, 1)  
+            # -> (batch_size, grid_height * grid_width, image_code_dim)
+            image_code = image_code.view(batch_size, -1, image_code_dim)
         # （1）按照caption的长短排序
         sorted_cap_lens, sorted_cap_indices = torch.sort(cap_lens, 0, True)
         captions = captions[sorted_cap_indices]
@@ -371,11 +397,12 @@ class ARCTIC(nn.Module):
     def __init__(self, image_code_dim, vocab, word_dim, attention_dim, hidden_size, num_layers):
         super(ARCTIC, self).__init__()
         self.vocab = vocab
-        self.encoder = ImageEncoder()
+        self.encoder = ViTImageEncoder()
         self.decoder = AttentionDecoder(image_code_dim, len(vocab), word_dim, attention_dim, hidden_size, num_layers)
 
     def forward(self, images, captions, cap_lens):
         image_code = self.encoder(images)
+        print(image_code.shape)
         return self.decoder(image_code, captions, cap_lens)
     
     def generate_by_beamsearch(self, images, beam_k, max_len):
@@ -529,7 +556,7 @@ config = Namespace(
     max_len = 30,
     captions_per_image = 5,
     batch_size = 32,
-    image_code_dim = 2048,
+    image_code_dim = 768,
     word_dim = 512,
     hidden_size = 512,
     attention_dim = 512,
