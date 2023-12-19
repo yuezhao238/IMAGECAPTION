@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch
 from torchvision.models import vit_b_16, ViT_B_16_Weights
 
+
 class ViTImageEncoder(nn.Module):
     def __init__(self, finetuned=True):
         super(ViTImageEncoder, self).__init__()
@@ -24,6 +25,7 @@ class ViTImageEncoder(nn.Module):
         out = self.model.encoder(x)
         return out
 
+
 class ImageEncoder(nn.Module):
     def __init__(self, finetuned=True):
         super(ImageEncoder, self).__init__()
@@ -35,4 +37,17 @@ class ImageEncoder(nn.Module):
         
     def forward(self, images):
         out = self.grid_rep_extractor(images) 
+        return out
+
+
+class EntireImageEncoder(nn.Module):
+    def __init__(self, finetuned=True):
+        super(EntireImageEncoder, self).__init__()
+        model = torchvision.models.resnet101(weights=ResNet101_Weights.DEFAULT)
+        self.grid_rep_extractor = nn.Sequential(*(list(model.children())[:-1]))
+        for param in self.grid_rep_extractor.parameters():
+            param.requires_grad = finetuned
+
+    def forward(self, images):
+        out = self.grid_rep_extractor(images).reshape(-1, 2048)
         return out

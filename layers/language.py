@@ -92,3 +92,81 @@ class AttentionDecoder(nn.Module):
             predictions[:real_batch_size, step, :] = preds
             alphas[:real_batch_size, step, :] = alpha
         return predictions, alphas, captions, lengths, sorted_cap_indices
+
+
+class GRUDecoder(nn.Module):
+    def __init__(self, image_code_dim, vocab_size, word_dim, hidden_size, num_layers, dropout=0.5):
+        super(GRUDecoder, self).__init__()
+        self.embed = nn.Embedding(vocab_size, word_dim)
+        self.hidden_size = hidden_size
+        self.rnn = nn.GRU(word_dim + image_code_dim, hidden_size, num_layers)
+        self.fc = nn.Linear(hidden_size, vocab_size)
+        self.dropout = nn.Dropout(p=dropout)
+        self.init_state = nn.Linear(image_code_dim, num_layers * hidden_size)
+        self.init_weights()
+
+    def init_weights(self):
+        self.embed.weight.data.uniform_(-0.1, 0.1)
+        self.fc.bias.data.fill_(0)
+        self.fc.weight.data.uniform_(-0.1, 0.1)
+
+    def init_hidden_state(self, image_code, captions, cap_lens):
+        """
+        参数：
+            image_code：图像编码器输出的图像表示
+                        (batch_size, image_code_dim)
+        """
+        batch_size = captions.size(0)
+        # （1）按照caption的长短排序
+        sorted_cap_lens, sorted_cap_indices = torch.sort(cap_lens, 0, True)
+        captions = captions[sorted_cap_indices]
+        image_code = image_code[sorted_cap_indices]
+        # （2）初始化隐状态
+        hidden_state = self.init_state(image_code)
+        hidden_state = hidden_state.view(
+            batch_size,
+            self.rnn.num_layers,
+            self.rnn.hidden_size).permute(1, 0, 2)
+        return image_code, captions, sorted_cap_lens, sorted_cap_indices, hidden_state
+
+    def forward_step(self, image_code, curr_cap_embed, hidden_state):
+        # （3.1）以图像整体表示和当前时刻词表示为输入，获得GRU输出
+        x = torch.cat((image_code, curr_cap_embed), dim=-1).unsqueeze(0)
+        # x: (1, real_batch_size, hidden_size + word_dim)
+        # out: (1, real_batch_size, hidden_size)
+        out, hidden_state = self.rnn(x, hidden_state)
+        # （3.2）获取该时刻的预测结果
+        # (real_batch_size, vocab_size)
+        preds = self.fc(self.dropout(out.squeeze(0)))
+        return preds, hidden_state
+
+    def forward(self, image_code, captions, cap_lens):
+        """
+        参数：
+            hidden_state: (num_layers, batch_size, hidden_size)
+            image_code:  (batch_size, image_code_dim)
+            captions: (batch_size, )
+        """
+        # （1）将图文数据按照文本的实际长度从长到短排序
+        # （2）获得GRU的初始隐状态
+        image_code, captions, sorted_cap_lens, sorted_cap_indices, hidden_state \
+            = self.init_hidden_state(image_code, captions, cap_lens)
+        batch_size = image_code.size(0)
+        # 输入序列长度减1，因为最后一个时刻不需要预测下一个词
+        lengths = sorted_cap_lens.cpu() - 1
+        # 初始化变量：模型的预测结果和注意力分数
+        predictions = torch.zeros(batch_size, lengths[0], self.fc.out_features).to(captions.device)
+        # 获取文本嵌入表示 cap_embeds: (batch_size, num_steps, word_dim)
+        cap_embeds = self.embed(captions)
+        # Teacher-Forcing模式
+        for step in range(lengths[0]):
+            # （3）解码
+            # （3.1）模拟pack_padded_sequence函数的原理，获取该时刻的非<pad>输入
+            real_batch_size = torch.where(lengths > step)[0].shape[0]
+            preds, hidden_state = self.forward_step(
+                image_code[:real_batch_size],
+                cap_embeds[:real_batch_size, step, :],
+                hidden_state[:, :real_batch_size, :].contiguous())
+            # 记录结果
+            predictions[:real_batch_size, step, :] = preds
+        return predictions, captions, lengths, sorted_cap_indices
