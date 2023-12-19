@@ -102,7 +102,7 @@ def create_dataset(dataset='flickr8k',
 
         for i, path in enumerate(imgpaths):
             # 合法性检查，检查图像是否可以被解析
-            img = Image.open(path) 
+            # img = Image.open(path) 
             # 如果该图片对应的描述数量不足，则补足
             if len(imcaps[i]) < captions_per_image:
                 captions = imcaps[i] + \
@@ -161,7 +161,7 @@ class ImageTextDataset(Dataset):
 
     def __getitem__(self, i):
         # 第i个文本描述对应第(i // captions_per_image)张图片
-        img = Image.open(self.data['IMAGES'][i // self.cpi]).convert('RGB')
+        img = Image.open(self.data['IMAGES'][i // self.cpi][3:]).convert('RGB')
         if self.transform is not None:
             img = self.transform(img)
 
