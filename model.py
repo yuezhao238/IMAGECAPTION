@@ -5,8 +5,8 @@ import torch
 import torch.nn as nn
 import torchvision.transforms as transforms
 from datasets.dataset import ImageTextDataset
-from layers.vision import ImageEncoder, ViTImageEncoder
-from layers.language import AttentionDecoder
+from layers.vision import ImageEncoder, ViTImageEncoder, EntireImageEncoder
+from layers.language import AttentionDecoder, GRUDecoder
 
 
 class ARCTIC(nn.Module):
