@@ -8,3 +8,4 @@ wandb/
 test*
 allocate*
 trycode*
+.idea/
