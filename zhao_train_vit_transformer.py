@@ -21,6 +21,9 @@ from criterion import PackedCrossEntropyLoss
 # os.environ["WANDB_API_KEY"] = "6b6ae714ca6908898fec2f0198691c5e2a52b7f7"
 # os.environ["WANDB_MODE"] = "offline"
 
+# use second GPU
+os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+
 wandb.init(project="imagecaption", name="ZhaoModel")
 
 dataset = 'deepfashion'
@@ -33,7 +36,7 @@ config = Namespace(
     word_dim = 512,
     hidden_size = 512,
     attention_dim = 512,
-    num_layers = 1,
+    num_layers = 5,
     encoder_learning_rate = 0.0001,
     decoder_learning_rate = 0.0005,
     num_epochs = 100,

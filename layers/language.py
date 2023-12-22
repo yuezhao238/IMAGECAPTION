@@ -95,7 +95,7 @@ class AttentionDecoder(nn.Module):
 
 
 class TransformerDecoder(nn.Module):
-    def __init__(self, image_code_dim, vocab_size, word_dim, hidden_size, num_layers, dropout=0.5,nhead=4):
+    def __init__(self, image_code_dim, vocab_size, word_dim, attention_dim, hidden_size, num_layers, dropout=0.5,nhead=4):
         super(TransformerDecoder, self).__init__()
         self.embed = nn.Embedding(vocab_size, word_dim)
         self.hidden_size = hidden_size
@@ -129,7 +129,7 @@ class TransformerDecoder(nn.Module):
 
         memory = hidden_state.repeat(self.decoder.num_layers, 1, 1)  # (num_layers, batch_size, hidden_size)
 
-        tgt_mask = generate_square_subsequent_mask(captions.size(1)).to(captions.device)
+        tgt_mask = self.generate_square_subsequent_mask(captions.size(1)).to(captions.device)
 
         output = self.decoder(captions_embed.permute(1, 0, 2), memory, tgt_mask=tgt_mask)
 
