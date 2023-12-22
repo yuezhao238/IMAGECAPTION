@@ -6,7 +6,7 @@ import torch.nn as nn
 import torchvision.transforms as transforms
 from datasets.dataset import ImageTextDataset
 from layers.vision import ResImageEncoder, ViTImageEncoder, EntireImageEncoder
-from layers.language import AttentionDecoder, GRUDecoder#, TransformerDecoder
+from layers.language import AttentionDecoder, GRUDecoder, TransformerDecoder
 
 
 class ARCTIC(nn.Module):
@@ -101,9 +101,10 @@ class ZhaoModel(nn.Module):
     def __init__(self, image_code_dim, vocab, word_dim, attention_dim, hidden_size, num_layers):
         super(ZhaoModel, self).__init__()
         self.vocab = vocab
-        self.encoder = ViTImageEncoder()
+        self.encoder = ViTImageEncoder(finetuned=False)
         self.adapter = nn.Linear(768, image_code_dim)
-        self.decoder = AttentionDecoder(image_code_dim, len(vocab), word_dim, attention_dim, hidden_size, num_layers)
+        # self.decoder = AttentionDecoder(image_code_dim, len(vocab), word_dim, attention_dim, hidden_size, num_layers)
+        self.decoder = TransformerDecoder(image_code_dim, len(vocab), word_dim, attention_dim, hidden_size, num_layers)
 
     def forward(self, images, captions, cap_lens):
         image_code = self.encoder(images)
@@ -111,6 +112,7 @@ class ZhaoModel(nn.Module):
         return self.decoder(image_code, captions, cap_lens)
     
     def generate_by_beamsearch(self, images, beam_k, max_len):
+        raise NotImplementedError
         vocab_size = len(self.vocab)
         image_codes = self.encoder(images)
         texts = []

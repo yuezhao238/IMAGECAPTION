@@ -13,6 +13,7 @@ from torch.utils.data import Dataset
 import torchvision
 import torchvision.transforms as transforms
 import wandb
+from model import ZhaoModel
 
 # os.environ["WANDB_API_KEY"] = "6b6ae714ca6908898fec2f0198691c5e2a52b7f7"
 # os.environ["WANDB_MODE"] = "offline"
@@ -214,20 +215,15 @@ from torchvision.models import vit_b_16, ViT_B_16_Weights
 class ViTImageEncoder(nn.Module):
     def __init__(self, finetuned=True):
         super(ViTImageEncoder, self).__init__()
-        # Load pre-trained Vision Transformer
         self.model = vit_b_16(weights=ViT_B_16_Weights.DEFAULT)
-        # self.model = self.model.encoder
-        # If not finetuning, freeze the parameters
         if not finetuned:
             for param in self.model.parameters():
                 param.requires_grad = False
         
     def forward(self, images):
-        # Reshape and permute the input tensor
         x = self.model._process_input(images)
         n = x.shape[0]
 
-        # Expand the class token to the full batch
         batch_class_token = self.model.class_token.expand(n, -1, -1)
         x = torch.cat([batch_class_token, x], dim=1)
 
@@ -595,7 +591,7 @@ with open(vocab_path, 'r') as f:
 start_epoch = 0
 checkpoint = config.checkpoint
 if checkpoint is None:
-    model = ARCTIC(config.image_code_dim, vocab, config.word_dim, config.attention_dim, config.hidden_size, config.num_layers)
+    model = ZhaoModel(config.image_code_dim, vocab, config.word_dim, config.attention_dim, config.hidden_size, config.num_layers)
 else:
     checkpoint = torch.load(checkpoint)
     start_epoch = checkpoint['epoch'] + 1

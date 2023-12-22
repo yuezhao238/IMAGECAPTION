@@ -94,8 +94,56 @@ class AttentionDecoder(nn.Module):
         return predictions, alphas, captions, lengths, sorted_cap_indices
 
 
-# class TransformerDecoder(nn.Module):
-#     raise NotImplementedError
+class TransformerDecoder(nn.Module):
+    def __init__(self, image_code_dim, vocab_size, word_dim, hidden_size, num_layers, dropout=0.5,nhead=4):
+        super(TransformerDecoder, self).__init__()
+        self.embed = nn.Embedding(vocab_size, word_dim)
+        self.hidden_size = hidden_size
+        self.nhead = nhead
+        self.image_code_to_hidden = nn.Linear(image_code_dim, hidden_size)
+        self.decoder_layers = nn.TransformerDecoderLayer(d_model=hidden_size, nhead=self.nhead, dim_feedforward=hidden_size)
+        self.decoder = nn.TransformerDecoder(self.decoder_layers, num_layers=num_layers)
+        self.fc = nn.Linear(hidden_size, vocab_size)
+        self.dropout = nn.Dropout(p=dropout)
+        self.init_weights()
+
+    def init_weights(self):
+        self.embed.weight.data.uniform_(-0.1, 0.1)
+        self.fc.bias.data.fill_(0)
+        self.fc.weight.data.uniform_(-0.1, 0.1)
+
+    def forward(self, image_code, captions, cap_lens):
+        print(captions)
+        print(cap_lens)
+        batch_size = captions.size(0)
+        sorted_cap_lens, sorted_cap_indices = torch.sort(cap_lens, 0, True)
+        captions = captions[sorted_cap_indices]
+        image_code = image_code[sorted_cap_indices]
+
+        # 初始化隐状态
+        hidden_state = self.image_code_to_hidden(image_code)
+        # hidden_state = hidden_state.unsqueeze(0).expand(self.decoder.num_layers, -1, -1)
+        hidden_state = hidden_state.permute(1, 0, 2)[-1] # (batch_size, hidden_size)
+        captions_embed = self.embed(captions)  # (batch_size, max_seq_length, word_dim)
+        captions_embed = self.dropout(captions_embed)
+
+        memory = hidden_state.repeat(self.decoder.num_layers, 1, 1)  # (num_layers, batch_size, hidden_size)
+
+        tgt_mask = nn.Transformer.generate_square_subsequent_mask(captions.size(1)).to(captions.device)
+
+        output = self.decoder(captions_embed.permute(1, 0, 2), memory, tgt_mask=tgt_mask)
+
+        output = self.fc(output.permute(1, 0, 2))  # (batch_size, max_seq_length, vocab_size)
+
+        return output, None, captions, sorted_cap_lens.cpu() - 1, sorted_cap_indices
+        
+
+    @staticmethod
+    def generate_square_subsequent_mask(sz):
+        mask = torch.triu(torch.ones(sz, sz) * float('-inf'), diagonal=1)
+        return mask
+
+
 
 
 class GRUDecoder(nn.Module):

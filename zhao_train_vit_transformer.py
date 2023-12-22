@@ -38,7 +38,7 @@ config = Namespace(
     decoder_learning_rate = 0.0005,
     num_epochs = 100,
     grad_clip = 5.0,
-    alpha_weight = 1.0,
+    alpha_weight = 0,
     evaluate_step = 900, # 每隔多少步在验证集上测试一次
     checkpoint = None, # 如果不为None，则利用该变量路径的模型继续训练
     best_checkpoint = f'../model/ZhaoModel/best_{dataset}.ckpt', # 验证集上表现最优的模型的路径
@@ -105,7 +105,8 @@ for epoch in range(start_epoch, config.num_epochs):
         loss = loss_fn(predictions, sorted_captions[:, 1:], lengths)
         # 重随机注意力正则项，使得模型尽可能全面的利用到每个网格
         # 要求所有时刻在同一个网格上的注意力分数的平方和接近1
-        loss += config.alpha_weight * ((1. - alphas.sum(axis=1)) ** 2).mean()
+        if config.alpha_weight:
+            loss += config.alpha_weight * ((1. - alphas.sum(axis=1)) ** 2).mean()
 
         loss.backward()
         # 梯度截断
