@@ -94,6 +94,10 @@ class AttentionDecoder(nn.Module):
         return predictions, alphas, captions, lengths, sorted_cap_indices
 
 
+# class TransformerDecoder(nn.Module):
+#     raise NotImplementedError
+
+
 class GRUDecoder(nn.Module):
     def __init__(self, image_code_dim, vocab_size, word_dim, hidden_size, num_layers, dropout=0.5):
         super(GRUDecoder, self).__init__()

@@ -26,9 +26,9 @@ class ViTImageEncoder(nn.Module):
         return out
 
 
-class ImageEncoder(nn.Module):
+class ResImageEncoder(nn.Module):
     def __init__(self, finetuned=True):
-        super(ImageEncoder, self).__init__()
+        super(ResImageEncoder, self).__init__()
         model = torchvision.models.resnet101(weights=ResNet101_Weights.DEFAULT)
         # ResNet-101网格表示提取器
         self.grid_rep_extractor = nn.Sequential(*(list(model.children())[:-2]))

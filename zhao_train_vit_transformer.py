@@ -3,7 +3,7 @@ import json
 import random 
 from collections import defaultdict, Counter
 from PIL import Image
-from matplotlib import pyplot as plt
+# from matplotlib import pyplot as plt
 from argparse import Namespace 
 import numpy as np
 import torch
@@ -12,10 +12,16 @@ from torch.nn.utils.rnn import pack_padded_sequence
 from torch.utils.data import Dataset
 import torchvision
 import torchvision.transforms as transforms
+import wandb
 from torchvision.models import ResNet101_Weights
 from utils import *
 from model import *
 from criterion import PackedCrossEntropyLoss
+
+# os.environ["WANDB_API_KEY"] = "6b6ae714ca6908898fec2f0198691c5e2a52b7f7"
+# os.environ["WANDB_MODE"] = "offline"
+
+wandb.init(project="imagecaption", name="ZhaoModel")
 
 dataset = 'deepfashion'
 # 设置模型超参数和辅助变量
@@ -35,17 +41,18 @@ config = Namespace(
     alpha_weight = 1.0,
     evaluate_step = 900, # 每隔多少步在验证集上测试一次
     checkpoint = None, # 如果不为None，则利用该变量路径的模型继续训练
-    best_checkpoint = f'../model/CaptionModel/best_{dataset}.ckpt', # 验证集上表现最优的模型的路径
-    last_checkpoint = f'../model/CaptionModel/last_{dataset}.ckpt', # 训练完成时的模型的路径
+    best_checkpoint = f'../model/ZhaoModel/best_{dataset}.ckpt', # 验证集上表现最优的模型的路径
+    last_checkpoint = f'../model/ZhaoModel/last_{dataset}.ckpt', # 训练完成时的模型的路径
     beam_k = 5
 )
 
+wandb.config.update(config)
 
-if not os.path.exists('../model/CaptionModel'):
-    os.makedirs('../model/CaptionModel')
+if not os.path.exists('../model/ZhaoModel'):
+    os.makedirs('../model/ZhaoModel')
 
 # 设置GPU信息
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+# os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu") 
 
 # 数据
@@ -61,7 +68,7 @@ with open(vocab_path, 'r') as f:
 start_epoch = 0
 checkpoint = config.checkpoint
 if checkpoint is None:
-    model = CaptionModel(config.image_code_dim, vocab, config.word_dim, config.hidden_size, config.num_layers)
+    model = ZhaoModel(config.image_code_dim, vocab, config.word_dim, config.attention_dim, config.hidden_size, config.num_layers)
 else:
     checkpoint = torch.load(checkpoint)
     start_epoch = checkpoint['epoch'] + 1
@@ -92,10 +99,14 @@ for epoch in range(start_epoch, config.num_epochs):
         caplens = caplens.to(device)
 
         # 2. 前馈计算
-        predictions, sorted_captions, lengths, sorted_cap_indices = model(imgs, caps, caplens)
+        predictions, alphas, sorted_captions, lengths, sorted_cap_indices = model(imgs, caps, caplens)
         # 3. 计算损失
         # captions从第2个词开始为targets
         loss = loss_fn(predictions, sorted_captions[:, 1:], lengths)
+        # 重随机注意力正则项，使得模型尽可能全面的利用到每个网格
+        # 要求所有时刻在同一个网格上的注意力分数的平方和接近1
+        loss += config.alpha_weight * ((1. - alphas.sum(axis=1)) ** 2).mean()
+
         loss.backward()
         # 梯度截断
         if config.grad_clip > 0:
@@ -103,14 +114,17 @@ for epoch in range(start_epoch, config.num_epochs):
         
         # 4. 更新参数
         optimizer.step()
+
+        wandb.log({"loss": loss.cpu()})
         
         if (i+1) % 100 == 0:
             print('epoch %d, step %d: loss=%.2f' % (epoch, i+1, loss.cpu()))
+            wandb.log({"epoch": epoch, "step": i+1, "loss": loss.cpu()})
             fw.write('epoch %d, step %d: loss=%.2f \n' % (epoch, i+1, loss.cpu()))
             fw.flush()
 
         now_step += 1
-        
+
     state = {
             'epoch': epoch,
             'step': now_step,
@@ -127,12 +141,14 @@ for epoch in range(start_epoch, config.num_epochs):
     fw.write('Validation@epoch, %d, step, %d, BLEU-4=%.2f\n' % (epoch, i+1, bleu_score))
     fw.flush()
     print('Validation@epoch, %d, step, %d, BLEU-4=%.2f' % (epoch, i+1, bleu_score))
+    wandb.log({"epoch": epoch, "step": i+1, "BLEU-4": bleu_score})
 
 checkpoint = torch.load(config.best_checkpoint)
 model = checkpoint['model']
 bleu_score = evaluate(test_loader, model, config)
 print("Evaluate on the test set with the model that has the best performance on the validation set")
 print('Epoch: %d, BLEU-4=%.2f' % (checkpoint['epoch'], bleu_score))
+wandb.log({"BLEU-4": bleu_score})
 fw.write('Epoch: %d, BLEU-4=%.2f' % (checkpoint['epoch'], bleu_score))
 fw.close()
 
