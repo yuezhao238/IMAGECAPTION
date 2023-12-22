@@ -129,7 +129,7 @@ class TransformerDecoder(nn.Module):
 
         memory = hidden_state.repeat(self.decoder.num_layers, 1, 1)  # (num_layers, batch_size, hidden_size)
 
-        tgt_mask = nn.Transformer.generate_square_subsequent_mask(captions.size(1)).to(captions.device)
+        tgt_mask = generate_square_subsequent_mask(captions.size(1)).to(captions.device)
 
         output = self.decoder(captions_embed.permute(1, 0, 2), memory, tgt_mask=tgt_mask)
 
