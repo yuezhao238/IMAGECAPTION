@@ -96,41 +96,41 @@ print("开始训练")
 global_step = 0
 for epoch in range(start_epoch, config.num_epochs):
     instance_step = 0
-    # for i, (imgs, caps, caplens) in enumerate(train_loader):
-    #     optimizer.zero_grad()
-    #     # 1. 读取数据至GPU
-    #     imgs = imgs.to(device)
-    #     caps = caps.to(device)
-    #     caplens = caplens.to(device)
+    for i, (imgs, caps, caplens) in enumerate(train_loader):
+        optimizer.zero_grad()
+        # 1. 读取数据至GPU
+        imgs = imgs.to(device)
+        caps = caps.to(device)
+        caplens = caplens.to(device)
 
-    #     # 2. 前馈计算
-    #     predictions, alphas, sorted_captions, lengths, sorted_cap_indices = model(imgs, caps, caplens)
-    #     # 3. 计算损失
-    #     # captions从第2个词开始为targets
-    #     loss = loss_fn(predictions, sorted_captions[:, 1:], lengths)
-    #     # 重随机注意力正则项，使得模型尽可能全面的利用到每个网格
-    #     # 要求所有时刻在同一个网格上的注意力分数的平方和接近1
-    #     if config.alpha_weight:
-    #         loss += config.alpha_weight * ((1. - alphas.sum(axis=1)) ** 2).mean()
+        # 2. 前馈计算
+        predictions, alphas, sorted_captions, lengths, sorted_cap_indices = model(imgs, caps, caplens)
+        # 3. 计算损失
+        # captions从第2个词开始为targets
+        loss = loss_fn(predictions, sorted_captions[:, 1:], lengths)
+        # 重随机注意力正则项，使得模型尽可能全面的利用到每个网格
+        # 要求所有时刻在同一个网格上的注意力分数的平方和接近1
+        if config.alpha_weight:
+            loss += config.alpha_weight * ((1. - alphas.sum(axis=1)) ** 2).mean()
 
-    #     loss.backward()
-    #     # 梯度截断
-    #     if config.grad_clip > 0:
-    #         nn.utils.clip_grad_norm_(model.parameters(), config.grad_clip)
+        loss.backward()
+        # 梯度截断
+        if config.grad_clip > 0:
+            nn.utils.clip_grad_norm_(model.parameters(), config.grad_clip)
         
-    #     # 4. 更新参数
-    #     optimizer.step()
+        # 4. 更新参数
+        optimizer.step()
 
-    #     wandb.log({"loss": loss.cpu()})
+        wandb.log({"loss": loss.cpu()})
         
-    #     # if (i+1) % 100 == 0:
-    #     #     print('epoch %d, step %d: loss=%.2f' % (epoch, i+1, loss.cpu()))
-    #     #     wandb.log({"epoch": epoch, "step": i+1, "loss": loss.cpu()})
-    #         # fw.write('epoch %d, step %d: loss=%.2f \n' % (epoch, i+1, loss.cpu()))
-    #         # fw.flush()
+        # if (i+1) % 100 == 0:
+        #     print('epoch %d, step %d: loss=%.2f' % (epoch, i+1, loss.cpu()))
+        #     wandb.log({"epoch": epoch, "step": i+1, "loss": loss.cpu()})
+            # fw.write('epoch %d, step %d: loss=%.2f \n' % (epoch, i+1, loss.cpu()))
+            # fw.flush()
 
-    #     instance_step += 1
-    #     global_step += 1
+        instance_step += 1
+        global_step += 1
 
     state = {
             'epoch': epoch,
