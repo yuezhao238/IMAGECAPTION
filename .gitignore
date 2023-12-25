@@ -1,6 +1,6 @@
 __pycache__/
 wandb/
-*.txt
+log.txt
 *.onnx
 *.png
 *.jpg

@@ -69,10 +69,13 @@ class ROUGEL:
         hyp = tokenize(hyp)
         ref = tokenize(ref)
         lcs = len(self.LCS(hyp, ref))
-        P_lcs = lcs / len(hyp)
-        R_lcs = lcs / len(ref)
-        F_lcs = ((1 + self.beta ** 2) * R_lcs * P_lcs) / (R_lcs + self.beta ** 2 * P_lcs)
-        return F_lcs
+        try:
+            P_lcs = lcs / len(hyp)
+            R_lcs = lcs / len(ref)
+            F_lcs = ((1 + self.beta ** 2) * R_lcs * P_lcs) / (R_lcs + self.beta ** 2 * P_lcs)
+            return F_lcs
+        except:
+            return 0
 
     def __call__(self, hyp: str, refs: List[str]) -> float:
         scores = 0
