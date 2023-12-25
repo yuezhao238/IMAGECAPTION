@@ -52,7 +52,7 @@ if not os.path.exists('../model/ZhangModel'):
     os.makedirs('../model/ZhangModel')
 
 # 设置GPU信息
-os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu") 
 
 # 数据
