@@ -1,19 +1,10 @@
 import os
 import json
-import random 
-from collections import defaultdict, Counter
-from PIL import Image
-# from matplotlib import pyplot as plt
 from argparse import Namespace 
 import numpy as np
 import torch
 import torch.nn as nn
-from torch.nn.utils.rnn import pack_padded_sequence
-from torch.utils.data import Dataset
-import torchvision
-import torchvision.transforms as transforms
 import wandb
-from torchvision.models import ResNet101_Weights
 from utils import *
 from model import *
 from criterion import PackedCrossEntropyLoss
@@ -87,11 +78,8 @@ model.train()
 # 损失函数
 loss_fn = PackedCrossEntropyLoss().to(device)
 
-# rouge_l, cider, meteor, bleu
 best_rougel, best_cider, best_meteor, best_bleu = 0, 0, 0, 0
 print("开始训练")
-# fw = open('log.txt', 'w')
-# from tqdm import tqdm
 
 global_step = 0
 for epoch in range(start_epoch, config.num_epochs):
@@ -123,11 +111,6 @@ for epoch in range(start_epoch, config.num_epochs):
 
         wandb.log({"loss": loss.cpu()})
         
-        # if (i+1) % 100 == 0:
-        #     print('epoch %d, step %d: loss=%.2f' % (epoch, i+1, loss.cpu()))
-        #     wandb.log({"epoch": epoch, "step": i+1, "loss": loss.cpu()})
-            # fw.write('epoch %d, step %d: loss=%.2f \n' % (epoch, i+1, loss.cpu()))
-            # fw.flush()
 
         instance_step += 1
         global_step += 1
@@ -138,12 +121,8 @@ for epoch in range(start_epoch, config.num_epochs):
             'model': model,
             'optimizer': optimizer
             }
-        # if (i+1) % config.evaluate_step == 0:
     rouge_l, cider, meteor, bleu = evaluate(valid_loader, model, config, metriclogger, global_step)
     # 5. 选择模型
-    # if best_res < bleu_score:
-    #     best_res = bleu_score
-    #     torch.save(state, config.best_checkpoint)
     print(rouge_l, cider, meteor, bleu)
     print(best_rougel, best_cider, best_meteor, best_bleu)
     if np.mean([rouge_l, cider, meteor, bleu]) > np.mean([best_rougel, best_cider, best_meteor, best_bleu]):
@@ -151,17 +130,7 @@ for epoch in range(start_epoch, config.num_epochs):
         torch.save(state, config.best_checkpoint)
 
     torch.save(state, config.last_checkpoint)
-    # fw.write('Validation@epoch, %d, step, %d, BLEU-4=%.2f\n' % (epoch, i+1, bleu_score))
-    # fw.flush()
-    # print('Validation@epoch, %d, step, %d, BLEU-4=%.2f' % (epoch, i+1, bleu_score))
-    # wandb.log({"epoch": epoch, "step": i+1, "BLEU-4": bleu_score})
 
 checkpoint = torch.load(config.best_checkpoint)
 model = checkpoint['model']
 rouge_l, cider, meteor, bleu = evaluate(test_loader, model, config, metriclogger, global_step)
-# print("Evaluate on the test set with the model that has the best performance on the validation set")
-# print('Epoch: %d, BLEU-4=%.2f' % (checkpoint['epoch'], bleu_score))
-# wandb.log({"BLEU-4": bleu_score})
-# fw.write('Epoch: %d, BLEU-4=%.2f' % (checkpoint['epoch'], bleu_score))
-# fw.close()
-
