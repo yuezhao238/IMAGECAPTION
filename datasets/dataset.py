@@ -26,7 +26,8 @@ def build_format_json(data_dir, tgt_name):
         for img in data:
             file_name = img
             file_path = os.path.join(data_dir, file_name)
-            sentences = data[img].split('.')
+            # sentences = data[img].split('.')
+            sentences = [data[img]]
             sentids = [i for i in range(start_sentence_id, start_sentence_id+len(sentences))]
             start_sentence_id += len(sentences)
             tgt_sentences = [{'raw': sent, 'tokens': sent.split(' '), 'sentid': sentid, 'imgid': start_image_id} for sent, sentid in zip(sentences, sentids)]
@@ -183,6 +184,6 @@ if __name__ == '__main__':
     if dataset == 'deepfashion':
         build_format_json(data_dir='../../data/deepfashion', tgt_name='dataset_deepfashion.json')
     create_dataset(dataset=dataset,
-                     captions_per_image=5, 
+                     captions_per_image=1, 
                      min_word_count=5, 
-                     max_len=30)
+                     max_len=100)
