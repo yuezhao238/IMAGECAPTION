@@ -105,6 +105,7 @@ class TransformerDecoder(nn.Module):
         self.decoder = nn.TransformerDecoder(self.decoder_layers, num_layers=num_layers)
         self.fc = nn.Linear(hidden_size, vocab_size)
         self.dropout = nn.Dropout(p=dropout)
+        self.softmax = nn.Softmax(dim=1)
         self.init_weights()
 
     def init_weights(self):
@@ -135,6 +136,7 @@ class TransformerDecoder(nn.Module):
 
         output = self.fc(output.permute(1, 0, 2))  # (batch_size, max_seq_length, vocab_size)
 
+        output = self.softmax(output)
         return output, None, captions, sorted_cap_lens.cpu() - 1, sorted_cap_indices
         
 

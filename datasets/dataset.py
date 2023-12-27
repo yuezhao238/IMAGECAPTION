@@ -172,6 +172,9 @@ class ImageTextDataset(Dataset):
         
 
     def __len__(self):
+        ### DEBUG ###
+        return 100
+        #############
         return self.dataset_size
 
 
