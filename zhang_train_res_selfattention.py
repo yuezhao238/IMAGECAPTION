@@ -1,6 +1,5 @@
 import os
 import json
-from PIL import Image
 from argparse import Namespace 
 import numpy as np
 import torch

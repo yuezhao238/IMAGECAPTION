@@ -279,7 +279,7 @@ class SelfAttentionDecoder(nn.Module):
         out, hidden_state = self.rnn(x, hidden_state)
         #（3.4）获取该时刻的预测结果
         # (real_batch_size, vocab_size)
-        out = self.self_attention(out, out, out)
+        out, _ = self.self_attention(out, out, out)
         preds = self.fc(self.dropout(out.squeeze(0)))
         return preds, alpha, hidden_state
         
