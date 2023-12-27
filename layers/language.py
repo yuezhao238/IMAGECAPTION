@@ -235,7 +235,7 @@ class GRUDecoder(nn.Module):
     
 class SelfAttentionDecoder(nn.Module):
     def __init__(self, image_code_dim, vocab_size, word_dim, attention_dim, hidden_size, num_layers, num_heads=1, dropout=0.5):
-        super(AttentionDecoder, self).__init__()
+        super(SelfAttentionDecoder, self).__init__()
         self.embed = nn.Embedding(vocab_size, word_dim)
         self.attention = AdditiveAttention(hidden_size, image_code_dim, attention_dim)
         self.init_state = nn.Linear(image_code_dim, num_layers*hidden_size)
