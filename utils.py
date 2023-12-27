@@ -82,7 +82,7 @@ def evaluate(data_loader, model, config, logger=None, global_step=None):
         model.train()
         return rouge_l, cider, meteor, bleu
 
-def mktrainval(data_dir, vocab_path, batch_size, workers=4):
+def mktrainval(data_dir, vocab_path, batch_size, workers=4, captions_per_image=1, max_len=100):
     train_tx = transforms.Compose([
         transforms.Resize(256),
         transforms.RandomCrop(224),
@@ -97,11 +97,14 @@ def mktrainval(data_dir, vocab_path, batch_size, workers=4):
     ])
     
     train_set = ImageTextDataset(os.path.join(data_dir, 'train_data.json'), 
-                                 vocab_path, 'train',  transform=train_tx)
+                                 vocab_path, 'train',  transform=train_tx,
+                                 captions_per_image=captions_per_image, max_len=max_len)
     valid_set = ImageTextDataset(os.path.join(data_dir, 'test_data.json'), 
-                                 vocab_path, 'val', transform=val_tx)
+                                 vocab_path, 'val', transform=val_tx,
+                                 captions_per_image=captions_per_image, max_len=max_len)
     test_set = ImageTextDataset(os.path.join(data_dir, 'test_data.json'), 
-                                 vocab_path, 'test', transform=val_tx)
+                                 vocab_path, 'test', transform=val_tx,
+                                 captions_per_image=captions_per_image, max_len=max_len)
     # print(len(train_set), len(valid_set), len(test_set))
     train_loader = torch.utils.data.DataLoader(
         train_set, batch_size=batch_size, shuffle=True, num_workers=workers, pin_memory=True)
