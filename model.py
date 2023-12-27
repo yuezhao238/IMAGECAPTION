@@ -121,23 +121,27 @@ class ZhaoModel(nn.Module):
 
         batch_sentences = []
         for i in range(image_code.size(0)):
-            this_sentence = [start_token[i].item()]
+            candidates = [([start_token[i].item()], 0.0)]
             for _ in range(max_len):
-                # greedy search
-                next_word_probs, _, _, _, _ = self.decoder(image_code[i:i+1],
-                                                            torch.LongTensor([this_sentence]).to(images.device))
-                # print(next_word_probs.shape)
-                next_word_probs = next_word_probs.squeeze(0)[-1, :].unsqueeze(0)
-                # print(next_word_probs.shape)
-                next_word_prob, next_word_idx = torch.max(next_word_probs, dim=1)
-                # print(next_word_prob.shape, next_word_idx.shape)
-                next_word_idx = next_word_idx.item()
-                this_sentence.append(next_word_idx)
-                if next_word_idx == self.vocab['<end>']:
-                    break
-            batch_sentences.append(this_sentence)
-        return batch_sentences
+                temp = []
+                for seq, score in candidates:
+                    if seq[-1] == self.vocab['<end>']:
+                        temp.append((seq, score))
+                        continue
+                    next_word_probs, _, _, _, _ = self.decoder(
+                        image_code[i:i + 1], torch.LongTensor([seq]).to(images.device))
+                    next_word_probs = next_word_probs.squeeze(0)[-1, :].unsqueeze(0)
 
+                    for j in range(next_word_probs.size(1)):
+                        next_seq = seq + [j]
+                        next_score = score + torch.log(next_word_probs[0, j])
+                        temp.append((next_seq, next_score))
+
+                candidates = sorted(temp, key=lambda x: x[1], reverse=True)[:beam_k]
+
+            best_sequence = sorted(candidates, key=lambda x: x[1], reverse=True)[0][0]
+            batch_sentences.append(best_sequence)
+        return batch_sentences
 
 class WangModel(nn.Module):
     def __init__(self, image_code_dim, vocab, word_dim, hidden_size, num_layers):
