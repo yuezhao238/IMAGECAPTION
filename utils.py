@@ -63,7 +63,7 @@ def evaluate(data_loader, model, config, logger=None, global_step=None):
         model.train()
         return bleu4
     else:
-        import numpy as np
+        # import numpy as np
         # print(multiple_refs, cands)
         # print(multiple_refs[0], cands[0])
         # tt = [rev_vocab[idx] for idx in cands[0]]
@@ -75,6 +75,7 @@ def evaluate(data_loader, model, config, logger=None, global_step=None):
         # print(np.array(multiple_refs).shape, np.array(cands).shape)
         multiple_refs = [[' '.join([rev_vocab[idx] for idx in ref]) for ref in multiple_refs[i]] for i in range(len(multiple_refs))]
         # print(multiple_refs)
+        # print(cands)
         cands = [' '.join([rev_vocab[idx] for idx in cand]) for cand in cands]
         # print(cands)
         rouge_l, cider, meteor, bleu = logger.log(multiple_refs, cands, global_step)

@@ -113,14 +113,21 @@ class TransformerDecoder(nn.Module):
         self.fc.bias.data.fill_(0)
         self.fc.weight.data.uniform_(-0.1, 0.1)
 
-    def forward(self, image_code, captions, cap_lens):
+    def forward(self, image_code, captions, cap_lens=None):
         # print(captions)
         # print(cap_lens)
+        # print(captions)
         batch_size = captions.size(0)
-        sorted_cap_lens, sorted_cap_indices = torch.sort(cap_lens, 0, True)
-        captions = captions[sorted_cap_indices]
-        image_code = image_code[sorted_cap_indices]
-
+        if cap_lens is not None:
+            sorted_cap_lens, sorted_cap_indices = torch.sort(cap_lens, 0, True)
+            sorted_cap_lens = sorted_cap_lens.cpu() - 1
+            # print(captions)
+            captions = captions[sorted_cap_indices]
+            image_code = image_code[sorted_cap_indices]
+        else:
+            sorted_cap_lens = None
+            sorted_cap_indices = None
+        # print(image_code.shape)
         # 初始化隐状态
         hidden_state = self.image_code_to_hidden(image_code)
         # hidden_state = hidden_state.unsqueeze(0).expand(self.decoder.num_layers, -1, -1)
@@ -130,6 +137,7 @@ class TransformerDecoder(nn.Module):
 
         memory = hidden_state.repeat(self.decoder.num_layers, 1, 1)  # (num_layers, batch_size, hidden_size)
 
+        # print(captions.shape, captions.device)
         tgt_mask = self.generate_square_subsequent_mask(captions.size(1)).to(captions.device)
 
         output = self.decoder(captions_embed.permute(1, 0, 2), memory, tgt_mask=tgt_mask) # TEACHER FORCING IS HERE
@@ -137,7 +145,7 @@ class TransformerDecoder(nn.Module):
         output = self.fc(output.permute(1, 0, 2))  # (batch_size, max_seq_length, vocab_size)
 
         output = self.softmax(output)
-        return output, None, captions, sorted_cap_lens.cpu() - 1, sorted_cap_indices
+        return output, None, captions, sorted_cap_lens, sorted_cap_indices
         
 
     @staticmethod
