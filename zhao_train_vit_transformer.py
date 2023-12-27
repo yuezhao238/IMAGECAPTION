@@ -97,6 +97,7 @@ for epoch in range(start_epoch, config.num_epochs):
         predictions, alphas, sorted_captions, lengths, sorted_cap_indices = model(imgs, caps, caplens)
         # 3. 计算损失
         # captions从第2个词开始为targets
+        print(predictions.shape, sorted_captions[:, 1:].shape, lengths.shape)
         loss = loss_fn(predictions, sorted_captions[:, 1:], lengths)
         # 重随机注意力正则项，使得模型尽可能全面的利用到每个网格
         # 要求所有时刻在同一个网格上的注意力分数的平方和接近1

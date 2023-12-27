@@ -132,7 +132,7 @@ class TransformerDecoder(nn.Module):
 
         tgt_mask = self.generate_square_subsequent_mask(captions.size(1)).to(captions.device)
 
-        output = self.decoder(captions_embed.permute(1, 0, 2), memory, tgt_mask=tgt_mask)
+        output = self.decoder(captions_embed.permute(1, 0, 2), memory, tgt_mask=tgt_mask) # TEACHER FORCING IS HERE
 
         output = self.fc(output.permute(1, 0, 2))  # (batch_size, max_seq_length, vocab_size)
 
