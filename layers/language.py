@@ -113,8 +113,8 @@ class TransformerDecoder(nn.Module):
         self.fc.weight.data.uniform_(-0.1, 0.1)
 
     def forward(self, image_code, captions, cap_lens):
-        print(captions)
-        print(cap_lens)
+        # print(captions)
+        # print(cap_lens)
         batch_size = captions.size(0)
         sorted_cap_lens, sorted_cap_indices = torch.sort(cap_lens, 0, True)
         captions = captions[sorted_cap_indices]
