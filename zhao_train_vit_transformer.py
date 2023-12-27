@@ -14,7 +14,7 @@ from metrics.calc_metric import metric_logger
 # os.environ["WANDB_MODE"] = "offline"
 
 # use second GPU
-os.environ['CUDA_VISIBLE_DEVICES'] = ''
+os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 
 wandb.init(project="imagecaption", name="ZhaoModel")
 
@@ -23,7 +23,7 @@ dataset = 'deepfashion'
 config = Namespace(
     max_len = 100,
     captions_per_image = 1,
-    batch_size = 32,
+    batch_size = 128,
     image_code_dim = 2048,
     word_dim = 512,
     hidden_size = 512,
