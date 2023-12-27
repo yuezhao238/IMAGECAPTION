@@ -1,21 +1,18 @@
 import os
 import json
-import random 
-from collections import defaultdict, Counter
-from PIL import Image
-from matplotlib import pyplot as plt
 from argparse import Namespace 
 import numpy as np
 import torch
 import torch.nn as nn
-from torch.nn.utils.rnn import pack_padded_sequence
-from torch.utils.data import Dataset
-import torchvision
-import torchvision.transforms as transforms
-from torchvision.models import ResNet101_Weights
 from utils import *
 from model import *
 from criterion import PackedCrossEntropyLoss
+import wandb
+from metrics.calc_metric import metric_logger
+# os.environ["WANDB_API_KEY"] = "6b6ae714ca6908898fec2f0198691c5e2a52b7f7"
+# os.environ["WANDB_MODE"] = "offline"
+
+wandb.init(project="imagecaption", name="WangModel")
 
 dataset = 'deepfashion'
 # 设置模型超参数和辅助变量
@@ -40,6 +37,8 @@ config = Namespace(
     beam_k = 5
 )
 
+wandb.config.update(config)
+metriclogger = metric_logger(wandb)
 
 if not os.path.exists('../model/WangModel'):
     os.makedirs('../model/WangModel')
@@ -77,11 +76,10 @@ model.train()
 # 损失函数
 loss_fn = PackedCrossEntropyLoss().to(device)
 
-best_res = 0
+best_rougel, best_cider, best_meteor, best_bleu = 0, 0, 0, 0
 print("开始训练")
-fw = open('log.txt', 'w')
-# from tqdm import tqdm
 
+global_step = 0
 for epoch in range(start_epoch, config.num_epochs):
     now_step = 0
     for i, (imgs, caps, caplens) in enumerate(train_loader):
@@ -103,13 +101,10 @@ for epoch in range(start_epoch, config.num_epochs):
         
         # 4. 更新参数
         optimizer.step()
-        
-        if (i+1) % 100 == 0:
-            print('epoch %d, step %d: loss=%.2f' % (epoch, i+1, loss.cpu()))
-            fw.write('epoch %d, step %d: loss=%.2f \n' % (epoch, i+1, loss.cpu()))
-            fw.flush()
+        wandb.log({"loss": loss.cpu()})
 
         now_step += 1
+        global_step += 1
         
     state = {
             'epoch': epoch,
@@ -118,21 +113,16 @@ for epoch in range(start_epoch, config.num_epochs):
             'optimizer': optimizer
             }
         # if (i+1) % config.evaluate_step == 0:
-    bleu_score = evaluate(valid_loader, model, config)
+    rouge_l, cider, meteor, bleu = evaluate(valid_loader, model, config, metriclogger, global_step)
     # 5. 选择模型
-    if best_res < bleu_score:
-        best_res = bleu_score
+    print(rouge_l, cider, meteor, bleu)
+    print(best_rougel, best_cider, best_meteor, best_bleu)
+    if np.mean([rouge_l, cider, meteor, bleu]) > np.mean([best_rougel, best_cider, best_meteor, best_bleu]):
+        best_rougel, best_cider, best_meteor, best_bleu = rouge_l, cider, meteor, bleu
         torch.save(state, config.best_checkpoint)
+
     torch.save(state, config.last_checkpoint)
-    fw.write('Validation@epoch, %d, step, %d, BLEU-4=%.2f\n' % (epoch, i+1, bleu_score))
-    fw.flush()
-    print('Validation@epoch, %d, step, %d, BLEU-4=%.2f' % (epoch, i+1, bleu_score))
 
 checkpoint = torch.load(config.best_checkpoint)
 model = checkpoint['model']
-bleu_score = evaluate(test_loader, model, config)
-print("Evaluate on the test set with the model that has the best performance on the validation set")
-print('Epoch: %d, BLEU-4=%.2f' % (checkpoint['epoch'], bleu_score))
-fw.write('Epoch: %d, BLEU-4=%.2f' % (checkpoint['epoch'], bleu_score))
-fw.close()
-
+rouge_l, cider, meteor, bleu = evaluate(test_loader, model, config, metriclogger, global_step)
