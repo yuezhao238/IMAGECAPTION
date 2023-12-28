@@ -1,21 +1,13 @@
 import numpy as np
-from typing import List, Tuple, Union, Optional, Dict
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
+from typing import List, Tuple, Union, Mapping
 import re
-import json
 from nltk.stem.porter import PorterStemmer
 from nltk.corpus import wordnet
 from collections import Counter
 from nltk.stem import PorterStemmer
-from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
 from collections import Counter
-from typing import List, Dict
 from collections import defaultdict, Counter
-from typing import Any, Callable, Mapping, Union
 import torch
-from torch import Tensor
 
 
 
@@ -90,17 +82,14 @@ class CIDErD:
         self.sigma = sigma
         self.scale = scale
 
-    def compute_score(self, candidates: list[str], 
-                      references: list[list[str]], 
-                      return_all_scores: bool = True, 
-                      return_tfidf: bool = False) -> Union[Tensor, tuple[dict[str, Tensor], dict[str, Any]]]:
+    def compute_score(self, candidates, references, return_all_scores: bool = True, return_tfidf: bool = False):
         # 预处理
         process_cands, process_refes = self._prepare_data(candidates, references)
         # 计算打分
         score = self._compute(process_cands, process_refes, return_all_scores, return_tfidf)
         return score
 
-    def _prepare_data(self, candidates: list[str], references: list[list[str]]) -> tuple[list, list]:
+    def _prepare_data(self, candidates, references):
         # 候选文本数量与参考文本数量相同
         if len(candidates) != len(references):
             raise ValueError(f"Invalid number of candidates and references. (found {len(candidates)=} != {len(references)=})")
@@ -108,10 +97,7 @@ class CIDErD:
         new_process_cands = [self._process_sentence(cand) for cand in candidates]
         return new_process_cands, new_process_refes
 
-    def _compute(self, process_cands: list[Counter], 
-                 process_refes: list[list[Counter]], 
-                 return_all_scores: bool, 
-                 return_tfidf: bool) -> Union[Tensor, tuple[dict[str, Tensor], dict[str, Any]]]:
+    def _compute(self, process_cands, process_refes, return_all_scores: bool, return_tfidf: bool):
         # 至少需要两个候选文本及其对应的参考文本
         if len(process_cands) <= 1:
             raise ValueError(f"CIDEr-D metric does not support less than 2 candidates with 2 references. (found {len(process_cands)} candidates, but expected > 1)")
@@ -135,7 +121,7 @@ class CIDErD:
         else:
             return cider_score
 
-    def _process_sentence(self, sentence: str) -> Counter[tuple[str, ...]]:
+    def _process_sentence(self, sentence: str):
         words = tokenize(sentence)
         # ngram计数
         ngram_counter = Counter()
@@ -146,7 +132,7 @@ class CIDErD:
                 ngram_counter[ngram] += 1
         return ngram_counter
 
-    def _compute_doc_freq(self, process_refes: list[list[Counter]]) -> Counter[tuple[str, ...]]:
+    def _compute_doc_freq(self, process_refes):
         doc_frequencies = Counter()
         for refs in process_refes:
             # 创建一个集合 all_refs_ngrams，包含了当前参考文本集（refs）中所有的唯一 n-gram
@@ -155,10 +141,7 @@ class CIDErD:
                 doc_frequencies[ngram] += 1 # 代表该n-gram在多少个不同的参考文本中出现过
         return doc_frequencies
 
-    def _compute_cider(self, process_cands: list[Counter], 
-                       process_refes: list[list[Counter]], 
-                       doc_frequencies: Union[Counter[tuple], Callable[[tuple], int]], 
-                       log_refs: float) -> tuple[np.ndarray, list[tuple[list, list]]]:
+    def _compute_cider(self, process_cands, process_refes, doc_frequencies, log_refs: float):
         scores = np.empty((len(process_cands),))
         tfidf_lst = []
         # 候选文本的n-gram计数转换为向量形式，同时计算其范数和长度
@@ -177,9 +160,7 @@ class CIDErD:
         scores = scores * self.scale
         return scores, tfidf_lst
 
-    def _counter_to_vec(self, counters: dict[tuple, int], 
-                        log_refs: float, 
-                        doc_frequencies: Union[Mapping[tuple, int], Callable[[tuple], int]]) -> tuple[list[defaultdict], np.ndarray, int]:
+    def _counter_to_vec(self, counters, log_refs: float, doc_frequencies):
         vec = [defaultdict(float) for _ in range(self.n)] # 存储每个n-gram的TF-IDF值
         length = 0  # 文本的长度
         norm = np.zeros((self.n,))  # 存储每个n-gram向量的范数
@@ -205,7 +186,7 @@ class CIDErD:
         norm = np.sqrt(norm)
         return vec, norm, length
 
-    def _similarity(self, cand_vec: list[defaultdict], ref_vec: list[defaultdict], cand_norm: np.ndarray, ref_norm: np.ndarray, cand_len: int, ref_len: int) -> np.ndarray:
+    def _similarity(self, cand_vec, ref_vec, cand_norm, ref_norm, cand_len: int, ref_len: int):
         delta = int(cand_len - ref_len)
         similarities = np.zeros((self.n,))
 
@@ -333,8 +314,8 @@ if __name__ == '__main__':
 
     # TODO: zzc300 - CIDErD unit test code
     from aac_metrics.functional import cider_d
-    candidates : list[str] = ["a man is speaking", "rain falls"]
-    references: list[list[str]] = [["a man speaks.", "someone speaks.", "a man is speaking while a bird is chirping in the background"], ["rain is falling hard on a surface"]]
+    candidates : List[str] = ["a man is speaking", "rain falls"]
+    references: List[List[str]] = [["a man speaks.", "someone speaks.", "a man is speaking while a bird is chirping in the background"], ["rain is falling hard on a surface"]]
     ciderd = CIDErD()
     score = ciderd.compute_score(candidates, references)
     final_score = round(score[0]['CIDEr_d'].item(), 6)

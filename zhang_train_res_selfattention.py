@@ -18,8 +18,8 @@ wandb.init(project="imagecaption", name="ZhangModel")
 dataset = 'deepfashion'
 # 设置模型超参数和辅助变量
 config = Namespace(
-    max_len = 30,
-    captions_per_image = 5,
+    max_len = 100,
+    captions_per_image = 1,
     batch_size = 32,
     image_code_dim = 2048,
     word_dim = 512,
@@ -28,7 +28,7 @@ config = Namespace(
     num_layers = 1,
     encoder_learning_rate = 0.0001,
     decoder_learning_rate = 0.0005,
-    num_epochs = 100,
+    num_epochs = 10,
     grad_clip = 5.0,
     alpha_weight = 1.0,
     evaluate_step = 900, # 每隔多少步在验证集上测试一次
