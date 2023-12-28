@@ -17,8 +17,8 @@ wandb.init(project="imagecaption", name="WangModel")
 dataset = 'deepfashion'
 # 设置模型超参数和辅助变量
 config = Namespace(
-    max_len = 30,
-    captions_per_image = 5,
+    max_len = 100,
+    captions_per_image = 1,
     batch_size = 32,
     image_code_dim = 2048,
     word_dim = 512,
