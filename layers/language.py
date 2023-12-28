@@ -1,7 +1,6 @@
 from torch import nn
 import torch
 from layers.attention import AdditiveAttention
-import math
 
 class AttentionDecoder(nn.Module):
     def __init__(self, image_code_dim, vocab_size, word_dim, attention_dim, hidden_size, num_layers, dropout=0.5):
@@ -107,13 +106,9 @@ class TransformerDecoder(nn.Module):
         self.init_weights()
 
     def init_weights(self):
-        for m in self.modules():
-            if isinstance(m, nn.Linear):
-                nn.init.xavier_uniform_(m.weight)
-                if m.bias is not None:
-                    nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.Embedding):
-                nn.init.uniform_(m.weight, -0.1, 0.1)
+        self.embed.weight.data.uniform_(-0.1, 0.1)
+        self.fc.bias.data.fill_(0)
+        self.fc.weight.data.uniform_(-0.1, 0.1)
 
     def forward(self, image_code, captions, cap_lens=None):
         batch_size = captions.size(0)
@@ -132,7 +127,6 @@ class TransformerDecoder(nn.Module):
 
         output = self.fc(output.permute(1, 0, 2))  # (batch_size, max_seq_length, vocab_size)
 
-        # output = self.softmax(output)
         return output, None, captions, sorted_cap_lens, sorted_cap_indices
         
 

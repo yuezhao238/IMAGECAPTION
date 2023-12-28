@@ -6,9 +6,7 @@ from torch.utils.data import Dataset
 import torchvision
 import torchvision.transforms as transforms
 import os
-import numpy as np
 import json
-from argparse import Namespace
 from model import *
 
 

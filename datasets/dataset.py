@@ -3,9 +3,6 @@ import json
 import random 
 from collections import defaultdict, Counter
 from PIL import Image
-# from matplotlib import pyplot as plt
-from argparse import Namespace 
-import numpy as np
 import torch
 from torch.utils.data import Dataset
 import os
@@ -173,9 +170,6 @@ class ImageTextDataset(Dataset):
         
 
     def __len__(self):
-        # ### DEBUG ###
-        # return 100
-        # #############
         return self.dataset_size
 
 
