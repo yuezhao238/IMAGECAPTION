@@ -100,51 +100,39 @@ class TransformerDecoder(nn.Module):
         self.embed = nn.Embedding(vocab_size, word_dim)
         self.hidden_size = hidden_size
         self.nhead = nhead
-        self.image_code_to_hidden = nn.Linear(image_code_dim, hidden_size)
         self.decoder_layers = nn.TransformerDecoderLayer(d_model=hidden_size, nhead=self.nhead, dim_feedforward=hidden_size)
         self.decoder = nn.TransformerDecoder(self.decoder_layers, num_layers=num_layers)
         self.fc = nn.Linear(hidden_size, vocab_size)
-        self.dropout = nn.Dropout(p=dropout)
-        self.softmax = nn.Softmax(dim=1)
+        # self.softmax = nn.Softmax(dim=2)
         self.init_weights()
 
     def init_weights(self):
-        self.embed.weight.data.uniform_(-0.1, 0.1)
-        self.fc.bias.data.fill_(0)
-        self.fc.weight.data.uniform_(-0.1, 0.1)
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Embedding):
+                nn.init.uniform_(m.weight, -0.1, 0.1)
 
     def forward(self, image_code, captions, cap_lens=None):
-        # print(captions)
-        # print(cap_lens)
-        # print(captions)
         batch_size = captions.size(0)
-        if cap_lens is not None:
-            sorted_cap_lens, sorted_cap_indices = torch.sort(cap_lens, 0, True)
-            sorted_cap_lens = sorted_cap_lens.cpu() - 1
-            # print(captions)
-            captions = captions[sorted_cap_indices]
-            image_code = image_code[sorted_cap_indices]
-        else:
-            sorted_cap_lens = None
-            sorted_cap_indices = None
-        # print(image_code.shape)
-        # 初始化隐状态
-        hidden_state = self.image_code_to_hidden(image_code)
-        # hidden_state = hidden_state.unsqueeze(0).expand(self.decoder.num_layers, -1, -1)
-        hidden_state = hidden_state.permute(1, 0, 2)[-1] # (batch_size, hidden_size)
+        sorted_cap_lens, sorted_cap_indices = torch.sort(cap_lens, 0, True)
+        sorted_cap_lens = sorted_cap_lens.cpu() - 1
+        captions = captions[sorted_cap_indices]
+        image_code = image_code[sorted_cap_indices]
+        hidden_state = image_code.permute(1, 0, 2) # (batch_size, 197, hidden_size)
         captions_embed = self.embed(captions)  # (batch_size, max_seq_length, word_dim)
-        captions_embed = self.dropout(captions_embed)
 
         memory = hidden_state.repeat(self.decoder.num_layers, 1, 1)  # (num_layers, batch_size, hidden_size)
 
-        # print(captions.shape, captions.device)
         tgt_mask = self.generate_square_subsequent_mask(captions.size(1)).to(captions.device)
 
-        output = self.decoder(captions_embed.permute(1, 0, 2), memory, tgt_mask=tgt_mask) # TEACHER FORCING IS HERE
+        output = self.decoder(captions_embed.permute(1, 0, 2), memory, tgt_mask=tgt_mask)
 
         output = self.fc(output.permute(1, 0, 2))  # (batch_size, max_seq_length, vocab_size)
 
-        output = self.softmax(output)
+        # output = self.softmax(output)
         return output, None, captions, sorted_cap_lens, sorted_cap_indices
         
 

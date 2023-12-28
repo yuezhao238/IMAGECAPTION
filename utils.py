@@ -16,7 +16,13 @@ def get_optimizer(model, config):
     return torch.optim.Adam([{"params": filter(lambda p: p.requires_grad, model.encoder.parameters()), 
                               "lr": config.encoder_learning_rate},
                              {"params": filter(lambda p: p.requires_grad, model.decoder.parameters()), 
-                              "lr": config.decoder_learning_rate}])
+                              "lr": config.decoder_learning_rate}]) if not hasattr(model, 'adapter') else \
+              torch.optim.Adam([{"params": filter(lambda p: p.requires_grad, model.encoder.parameters()),
+                                    "lr": config.encoder_learning_rate},
+                                    {"params": filter(lambda p: p.requires_grad, model.adapter.parameters()),
+                                    "lr": config.adapter_learning_rate},
+                                    {"params": filter(lambda p: p.requires_grad, model.decoder.parameters()),
+                                    "lr": config.decoder_learning_rate}])
     
 def adjust_learning_rate(optimizer, epoch, config):
     """

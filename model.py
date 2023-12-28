@@ -103,18 +103,18 @@ class ZhaoModel(nn.Module):
         super(ZhaoModel, self).__init__()
         self.vocab = vocab
         self.encoder = ViTImageEncoder(finetuned=False)
-        self.adapter = nn.Linear(768, image_code_dim)
+        # self.adapter = nn.Linear(768, image_code_dim)
         # self.decoder = AttentionDecoder(image_code_dim, len(vocab), word_dim, attention_dim, hidden_size, num_layers)
         self.decoder = TransformerDecoder(image_code_dim, len(vocab), word_dim, attention_dim, hidden_size, num_layers)
 
     def forward(self, images, captions, cap_lens):
         image_code = self.encoder(images)
-        image_code = self.adapter(image_code)
+        # image_code = self.adapter(image_code)
         return self.decoder(image_code, captions, cap_lens)
 
     def generate_by_beamsearch(self, images, beam_k, max_len):
         image_code = self.encoder(images)
-        image_code = self.adapter(image_code)
+        # image_code = self.adapter(image_code)
 
         start_token = [self.vocab['<start>']] * image_code.size(0)
         start_token = torch.LongTensor(start_token).unsqueeze(1).to(images.device)
