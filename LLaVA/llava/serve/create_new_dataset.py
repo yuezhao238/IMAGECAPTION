@@ -15,6 +15,7 @@ from io import BytesIO
 import json
 import os
 from transformers import TextStreamer
+from tqdm import tqdm
 
 dataset = 'deepfashion'
 karpathy_json_path=f'../../data/{dataset}/dataset_{dataset}.json'
@@ -55,7 +56,7 @@ def main(args):
 
     inp = 'Please describe this image in deepfashion dataset style.'
     
-    for img in data['images']:
+    for img in tqdm(data['images']):
         path = os.path.join(image_folder, img['filename'])
         conv = conv_templates[args.conv_mode].copy()
 

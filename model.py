@@ -131,7 +131,7 @@ class ZhaoModel(nn.Module):
                     next_word_probs, _, _, _, _ = self.decoder(
                         image_code[i:i + 1], torch.LongTensor([seq]).to(images.device))
                     next_word_probs = next_word_probs.squeeze(0)[-1, :].unsqueeze(0)
-
+                    next_word_probs = nn.functional.softmax(next_word_probs, dim=1)
                     for j in range(next_word_probs.size(1)):
                         next_seq = seq + [j]
                         next_score = score + torch.log(next_word_probs[0, j])

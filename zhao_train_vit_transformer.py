@@ -10,11 +10,11 @@ from model import *
 from criterion import PackedCrossEntropyLoss
 from metrics.calc_metric import metric_logger
 
-# os.environ["WANDB_API_KEY"] = "6b6ae714ca6908898fec2f0198691c5e2a52b7f7"
-# os.environ["WANDB_MODE"] = "offline"
+os.environ["WANDB_API_KEY"] = "6b6ae714ca6908898fec2f0198691c5e2a52b7f7"
+os.environ["WANDB_MODE"] = "offline"
 
 # use second GPU
-os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 wandb.init(project="imagecaption", name="ZhaoModel")
 

@@ -102,6 +102,7 @@ class TransformerDecoder(nn.Module):
         self.decoder_layers = nn.TransformerDecoderLayer(d_model=hidden_size, nhead=self.nhead, dim_feedforward=hidden_size)
         self.decoder = nn.TransformerDecoder(self.decoder_layers, num_layers=num_layers)
         self.fc = nn.Linear(hidden_size, vocab_size)
+        self.dropout = nn.Dropout(p=dropout)
         # self.softmax = nn.Softmax(dim=2)
         self.init_weights()
 
@@ -112,13 +113,18 @@ class TransformerDecoder(nn.Module):
 
     def forward(self, image_code, captions, cap_lens=None):
         batch_size = captions.size(0)
-        sorted_cap_lens, sorted_cap_indices = torch.sort(cap_lens, 0, True)
-        sorted_cap_lens = sorted_cap_lens.cpu() - 1
-        captions = captions[sorted_cap_indices]
-        image_code = image_code[sorted_cap_indices]
+        if cap_lens is not None:
+            sorted_cap_lens, sorted_cap_indices = torch.sort(cap_lens, 0, True)
+            sorted_cap_lens = sorted_cap_lens.cpu() - 1
+            captions = captions[sorted_cap_indices]
+            image_code = image_code[sorted_cap_indices]
+        else:
+            sorted_cap_lens = None
+            sorted_cap_indices = None
         hidden_state = image_code.permute(1, 0, 2) # (batch_size, 197, hidden_size)
         captions_embed = self.embed(captions)  # (batch_size, max_seq_length, word_dim)
 
+        captions_embed = self.dropout(captions_embed)
         memory = hidden_state.repeat(self.decoder.num_layers, 1, 1)  # (num_layers, batch_size, hidden_size)
 
         tgt_mask = self.generate_square_subsequent_mask(captions.size(1)).to(captions.device)
