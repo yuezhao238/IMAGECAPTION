@@ -1,9 +1,4 @@
-from torchvision.models import ResNet101_Weights
 import torch
-import torch.nn as nn
-from torch.nn.utils.rnn import pack_padded_sequence
-from torch.utils.data import Dataset
-import torchvision
 import torchvision.transforms as transforms
 import os
 import json
