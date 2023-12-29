@@ -98,6 +98,7 @@ class ARCTIC(nn.Module):
         return texts
     
 
+# author: 赵越
 class ZhaoModel(nn.Module):
     def __init__(self, image_code_dim, vocab, word_dim, attention_dim, hidden_size, num_layers):
         super(ZhaoModel, self).__init__()
@@ -143,6 +144,8 @@ class ZhaoModel(nn.Module):
             batch_sentences.append(best_sequence)
         return batch_sentences
 
+
+# author: 汪奕航
 class WangModel(nn.Module):
     def __init__(self, image_code_dim, vocab, word_dim, hidden_size, num_layers):
         super(WangModel, self).__init__()
@@ -231,6 +234,8 @@ class WangModel(nn.Module):
             texts.append(gen_sent)
         return texts
 
+
+# author: 张子琛
 class ZhangModel(nn.Module):
     def __init__(self, image_code_dim, vocab, word_dim, attention_dim, hidden_size, num_layers):
         super(ZhangModel, self).__init__()

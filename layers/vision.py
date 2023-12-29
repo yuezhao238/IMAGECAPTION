@@ -5,6 +5,7 @@ import torch
 from torchvision.models import vit_b_16, ViT_B_16_Weights
 
 
+# author: 赵越
 class ViTImageEncoder(nn.Module):
     def __init__(self, finetuned=True):
         super(ViTImageEncoder, self).__init__()
@@ -26,6 +27,7 @@ class ViTImageEncoder(nn.Module):
         return out
 
 
+# author: 张子琛
 class ResImageEncoder(nn.Module):
     def __init__(self, finetuned=True):
         super(ResImageEncoder, self).__init__()
@@ -40,6 +42,7 @@ class ResImageEncoder(nn.Module):
         return out
 
 
+# author: 汪奕航
 class EntireImageEncoder(nn.Module):
     def __init__(self, finetuned=True):
         super(EntireImageEncoder, self).__init__()
