@@ -93,6 +93,7 @@ class AttentionDecoder(nn.Module):
         return predictions, alphas, captions, lengths, sorted_cap_indices
 
 
+# author: 赵越
 class TransformerDecoder(nn.Module):
     def __init__(self, image_code_dim, vocab_size, word_dim, attention_dim, hidden_size, num_layers, dropout=0.5,nhead=4):
         super(TransformerDecoder, self).__init__()
@@ -142,8 +143,7 @@ class TransformerDecoder(nn.Module):
         return mask
 
 
-
-
+# author: 汪奕航
 class GRUDecoder(nn.Module):
     def __init__(self, image_code_dim, vocab_size, word_dim, hidden_size, num_layers, dropout=0.5):
         super(GRUDecoder, self).__init__()
@@ -220,7 +220,9 @@ class GRUDecoder(nn.Module):
             # 记录结果
             predictions[:real_batch_size, step, :] = preds
         return predictions, captions, lengths, sorted_cap_indices
-    
+
+
+# author: 张子琛
 class SelfAttentionDecoder(nn.Module):
     def __init__(self, image_code_dim, vocab_size, word_dim, attention_dim, hidden_size, num_layers, num_heads=1, dropout=0.5):
         super(SelfAttentionDecoder, self).__init__()

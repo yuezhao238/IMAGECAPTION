@@ -39,21 +39,3 @@ class AdditiveAttention(nn.Module):
         # -> (batch_size, 1, kv_dim)
         output = torch.bmm(attn.unsqueeze(1), key_value).squeeze(1)
         return output, attn
-
-class ProductAttention(nn.Module):
-    def __init__(self, query_dim, key_dim, attn_dim):
-        super(ProductAttention, self).__init__()
-        self.query_dim = query_dim
-        self.key_dim = key_dim
-        self.query_proj = nn.Linear(query_dim, attn_dim)
-        self.key_proj = nn.Linear(key_dim, attn_dim)
-        self.value_proj = nn.Linear(key_dim, attn_dim)
-
-    def forward(self, query, key_value):
-        queries = self.query_proj(query).unsqueeze(1)
-        keys = self.key_proj(key_value)
-
-        attn = torch.bmm(queries, keys.transpose(1,2)) / torch.sqrt(self.query_dim)
-        attn = nn.functional.softmax(attn, dim=2)
-        output = torch.bmm(attn, self.value_proj(key_value)).squeeze(1)
-        return output, attn
