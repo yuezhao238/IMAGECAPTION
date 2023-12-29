@@ -44,10 +44,10 @@ class EntireImageEncoder(nn.Module):
     def __init__(self, finetuned=True):
         super(EntireImageEncoder, self).__init__()
         model = torchvision.models.resnet101(weights=ResNet101_Weights.DEFAULT)
-        self.grid_rep_extractor = nn.Sequential(*(list(model.children())[:-1]))
-        for param in self.grid_rep_extractor.parameters():
+        self.grid_rep_extractor_entire = nn.Sequential(*(list(model.children())[:-1]))
+        for param in self.grid_rep_extractor_entire.parameters():
             param.requires_grad = finetuned
 
     def forward(self, images):
-        out = self.grid_rep_extractor(images).reshape(-1, 2048)
+        out = self.grid_rep_extractor_entire(images).reshape(-1, 2048)
         return out
